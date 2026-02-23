@@ -7,6 +7,7 @@ const RENDER_MODE_KEY = 'vantage.renderMode';
 const SIDEBAR_ROOT_KEY = 'vantage.sidebarRootPath';
 const SIDEBAR_FILTER_KEY = 'vantage.sidebarFilterPattern';
 const SIDEBAR_FILTER_ACTIVE_CONTEXT_KEY = 'vantage.sidebarFilterActive';
+const LARGE_IMAGE_CONFIRM_THRESHOLD = 9;
 
 type RenderMode = 'mosaic' | 'overlay';
 
@@ -29,6 +30,20 @@ function getUrisFromArgs(args: unknown[]): vscode.Uri[] {
     }
     const uri = getUriFromArgs(args);
     return uri ? [uri] : [];
+}
+
+async function confirmOpenLargeImageSet(imageCount: number): Promise<boolean> {
+    if (imageCount <= LARGE_IMAGE_CONFIRM_THRESHOLD) {
+        return true;
+    }
+
+    const selected = await vscode.window.showWarningMessage(
+        `You are about to open ${imageCount} images. This can be slow and use significant memory. Continue?`,
+        { modal: true },
+        'Open Images'
+    );
+
+    return selected === 'Open Images';
 }
 
 export function activate(context: vscode.ExtensionContext): void {
@@ -199,6 +214,11 @@ export function activate(context: vscode.ExtensionContext): void {
             const images = await collectImagesFromNodes(selection);
             if (images.length < 2) {
                 vscode.window.showErrorMessage('Please select folders/files that contain at least 2 images.');
+                return;
+            }
+
+            const shouldOpen = await confirmOpenLargeImageSet(images.length);
+            if (!shouldOpen) {
                 return;
             }
 

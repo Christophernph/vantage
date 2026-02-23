@@ -119,6 +119,7 @@ export class ImageDiffPanel {
                             command: 'imageLoaded',
                             data: `data:${mimeType};base64,${base64}`,
                             filename: uri.fsPath,
+                            fileSizeBytes: fileData.byteLength,
                             index: message.index
                         });
                     } catch (e) {
@@ -247,6 +248,7 @@ export class ImageDiffPanel {
                     command: 'imageLoaded',
                     data: `data:${mimeType};base64,${base64}`,
                     filename: filePath,
+                    fileSizeBytes: imageData.byteLength,
                     index: i
                 });
             }
@@ -282,6 +284,7 @@ export class ImageDiffPanel {
                         command: 'imageUpdated',
                         data: `data:${mimeType};base64,${base64}`,
                         filename: filePath,
+                        fileSizeBytes: fileData.byteLength,
                         index
                     });
                 } catch {
@@ -344,7 +347,7 @@ export class ImageDiffPanel {
                 <option value="overlay">Overlay</option>
             </select>
         </div>
-        <div id="status-line" class="status-line">Image 1/0 · Mosaic · Ref: -</div>
+        <div id="status-line" class="status-line"></div>
         <button id="overlayBtn" title="Overlay Right on Left">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                 <path fill-rule="evenodd" d="M12 8a.5.5 0 0 1-.5.5H5.707l2.147 2.146a.5.5 0 0 1-.708.708l-3-3a.5.5 0 0 1 0-.708l3-3a.5.5 0 1 1 .708.708L5.707 7.5H11.5a.5.5 0 0 1 .5.5z"/>

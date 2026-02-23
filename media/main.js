@@ -55,6 +55,67 @@
         return path.split(/[/\\]/).pop();
     }
 
+    function formatFileSize(bytes) {
+        if (!Number.isFinite(bytes) || bytes < 0) {
+            return '';
+        }
+
+        if (bytes < 1024) {
+            return `${bytes} B`;
+        }
+
+        const units = ['KB', 'MB', 'GB', 'TB'];
+        let value = bytes / 1024;
+        let unitIndex = 0;
+
+        while (value >= 1024 && unitIndex < units.length - 1) {
+            value /= 1024;
+            unitIndex++;
+        }
+
+        const decimals = value >= 100 ? 0 : value >= 10 ? 1 : 2;
+        return `${value.toFixed(decimals)} ${units[unitIndex]}`;
+    }
+
+    function getImageMetadataParts(image) {
+        if (!image) {
+            return [];
+        }
+
+        const parts = [];
+        if (Number.isFinite(image.width) && image.width > 0 && Number.isFinite(image.height) && image.height > 0) {
+            parts.push(`${image.width}×${image.height}`);
+        }
+
+        const fileSize = formatFileSize(image.fileSizeBytes);
+        if (fileSize) {
+            parts.push(fileSize);
+        }
+
+        return parts;
+    }
+
+    function updateFilenameLabel(labelEl, image) {
+        if (!labelEl || !image) {
+            return;
+        }
+
+        labelEl.innerHTML = '';
+
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'filename-name';
+        nameSpan.textContent = getFilename(image.filename);
+        labelEl.appendChild(nameSpan);
+
+        const metadata = getImageMetadataParts(image).join(' • ');
+        if (metadata) {
+            const metadataSpan = document.createElement('span');
+            metadataSpan.className = 'filename-meta';
+            metadataSpan.textContent = metadata;
+            labelEl.appendChild(metadataSpan);
+        }
+    }
+
     function updateZoomDisplay() {
         zoomLevelEl.textContent = `${Math.round(state.scale * 100)}%`;
     }
@@ -63,10 +124,7 @@
         if (!statusLine) {
             return;
         }
-
-        const total = state.images.length;
-        const active = total > 0 ? state.activeOverlayIndex + 1 : 0;
-        statusLine.textContent = `Image ${active}/${total}`;
+        statusLine.textContent = '';
     }
 
     function renderHelpContent() {
@@ -551,12 +609,26 @@
 
             const filenameDiv = document.createElement('div');
             filenameDiv.className = 'filename';
-            filenameDiv.textContent = getFilename(img.filename);
+            updateFilenameLabel(filenameDiv, img);
             filenameDiv.style.display = 'block';
 
             const imgElement = document.createElement('img');
             imgElement.className = 'sync-image';
             imgElement.draggable = false;
+            imgElement.addEventListener('load', () => {
+                const imageState = state.images[index];
+                if (!imageState) {
+                    return;
+                }
+
+                imageState.width = imgElement.naturalWidth;
+                imageState.height = imgElement.naturalHeight;
+                updateFilenameLabel(filenameDiv, imageState);
+
+                if (index === state.activeOverlayIndex) {
+                    updateStatusLine();
+                }
+            });
             imgElement.src = img.data;
 
             const diffCanvas = document.createElement('canvas');
@@ -577,6 +649,7 @@
                 image: imgElement,
                 overlayImage: overlayImg,
                 diffCanvas: diffCanvas,
+                filenameLabel: filenameDiv,
                 imageIndex: index
             });
         });
@@ -934,7 +1007,8 @@
         if (message.command === 'imageLoaded') {
             state.images[message.index] = {
                 data: message.data,
-                filename: message.filename
+                filename: message.filename,
+                fileSizeBytes: message.fileSizeBytes
             };
             state.loadedImageCount++;
 
@@ -951,12 +1025,18 @@
             if (idx >= 0 && idx < state.images.length) {
                 state.images[idx].data = message.data;
                 state.images[idx].filename = message.filename;
+                state.images[idx].fileSizeBytes = message.fileSizeBytes;
+                delete state.images[idx].width;
+                delete state.images[idx].height;
 
                 // Update the img src in-place (preserves zoom/pan)
                 const ic = state.imageContainers[idx];
                 if (ic) {
                     ic.image.src = message.data;
+                    updateFilenameLabel(ic.filenameLabel, state.images[idx]);
                 }
+
+                updateStatusLine();
 
                 // Recalculate differences if active
                 if (state.showDifferences) {
