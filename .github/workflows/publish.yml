@@ -40,9 +40,6 @@ jobs:
       - name: Compile
         run: npm run compile
 
-      - name: Publish to Marketplace
-        run: npx @vscode/vsce publish --skip-license -p ${{ secrets.VSCE_PAT }}
-
       - name: Commit version bump
         if: ${{ github.event.inputs.version != 'none' }}
         run: |
@@ -51,3 +48,6 @@ jobs:
           git add package.json package-lock.json
           git commit -m "chore: bump version to ${{ env.NEW_VERSION }}" || exit 0
           git push
+
+      - name: Publish to Marketplace
+        run: npx @vscode/vsce publish --skip-license -p ${{ secrets.VSCE_PAT }}
