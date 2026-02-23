@@ -21,6 +21,7 @@ export class ImageDiffPanel {
     private readonly _onRenderModeChanged?: (mode: 'mosaic' | 'overlay') => void;
     private _onDroppedUris?: (uris: vscode.Uri[]) => void;
     private _webviewReady = false;
+    private _fileWatchers: vscode.Disposable[] = [];
 
     public static createOrShow(
         extensionUri: vscode.Uri,
@@ -253,11 +254,56 @@ export class ImageDiffPanel {
             console.error('Failed to load images:', e);
             vscode.window.showErrorMessage(`Failed to load images: ${e}`);
         }
+
+        this._setupFileWatchers(imageUris);
+    }
+
+    private _setupFileWatchers(imageUris: vscode.Uri[]): void {
+        // Dispose existing watchers
+        for (const w of this._fileWatchers) {
+            w.dispose();
+        }
+        this._fileWatchers = [];
+
+        for (let i = 0; i < imageUris.length; i++) {
+            const uri = imageUris[i];
+            const index = i;
+            const pattern = new vscode.RelativePattern(vscode.Uri.joinPath(uri, '..'), uri.path.split('/').pop()!);
+            const watcher = vscode.workspace.createFileSystemWatcher(pattern);
+
+            const reloadImage = async () => {
+                try {
+                    const fileData = await vscode.workspace.fs.readFile(uri);
+                    const base64 = Buffer.from(fileData).toString('base64');
+                    const filePath = uri.path || uri.fsPath;
+                    const mimeType = this._getMimeType(filePath);
+
+                    this._panel.webview.postMessage({
+                        command: 'imageUpdated',
+                        data: `data:${mimeType};base64,${base64}`,
+                        filename: filePath,
+                        index
+                    });
+                } catch {
+                    // File may be mid-write; ignore
+                }
+            };
+
+            watcher.onDidChange(reloadImage);
+            watcher.onDidCreate(reloadImage);
+
+            this._fileWatchers.push(watcher);
+        }
     }
 
     public dispose(): void {
         ImageDiffPanel.currentPanel = undefined;
         this._panel.dispose();
+
+        for (const w of this._fileWatchers) {
+            w.dispose();
+        }
+        this._fileWatchers = [];
 
         for (const disposable of this._disposables) {
             disposable.dispose();
@@ -341,6 +387,15 @@ export class ImageDiffPanel {
             </div>
             <div id="helpContent" class="help-content"></div>
         </div>
+    </div>
+    <div id="contextMenu" class="context-menu hidden">
+        <div class="context-menu-item" data-action="fit">Fit to View</div>
+        <div class="context-menu-item" data-action="zoom100">Zoom to 100%</div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item" data-action="toggleMode">Toggle Mosaic / Overlay</div>
+        <div class="context-menu-item" data-action="toggleDifferences">Toggle Differences</div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item" data-action="help">Keyboard Shortcuts</div>
     </div>
     <script src="${scriptUri}"></script>
 </body>

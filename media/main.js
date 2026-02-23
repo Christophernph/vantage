@@ -20,6 +20,7 @@
     const referenceControl = document.getElementById('referenceControl');
     const helpOverlay = document.getElementById('helpOverlay');
     const helpContent = document.getElementById('helpContent');
+    const contextMenu = document.getElementById('contextMenu');
 
     const vscode = acquireVsCodeApi();
 
@@ -717,7 +718,7 @@
     }
 
 
-    // Zoom
+    // Zoom (centered on the current viewport center for consistent mosaic behavior)
     container.addEventListener('wheel', (e) => {
         e.preventDefault();
 
@@ -726,25 +727,11 @@
 
         if (newScale < 0.05 || newScale > 50) return;
 
-        // Find which image container the mouse is over
-        const target = e.target.closest('.image-item-container');
-        if (target) {
-            // Get the center of this specific container
-            const rect = target.getBoundingClientRect();
-            const containerCenterX = rect.left + rect.width / 2;
-            const containerCenterY = rect.top + rect.height / 2;
-
-            // Get mouse position relative to this container's center
-            const mouseOffsetX = e.clientX - containerCenterX;
-            const mouseOffsetY = e.clientY - containerCenterY;
-
-            // Calculate how much the point moves due to scale change
-            const scaleChange = newScale / state.scale;
-
-            // Adjust pan to keep the point under the mouse stationary
-            state.pointX = state.pointX + mouseOffsetX * (1 - scaleChange);
-            state.pointY = state.pointY + mouseOffsetY * (1 - scaleChange);
-        }
+        // Scale the pan offset so the point currently at the viewport center
+        // stays at the viewport center after the zoom.
+        const scaleChange = newScale / state.scale;
+        state.pointX = state.pointX * scaleChange;
+        state.pointY = state.pointY * scaleChange;
 
         state.scale = newScale;
         updateTransform();
@@ -923,6 +910,28 @@
                 updateStatusLine();
             }
         }
+
+        if (message.command === 'imageUpdated') {
+            const idx = message.index;
+            if (idx >= 0 && idx < state.images.length) {
+                state.images[idx].data = message.data;
+                state.images[idx].filename = message.filename;
+
+                // Update the img src in-place (preserves zoom/pan)
+                const ic = state.imageContainers[idx];
+                if (ic) {
+                    ic.image.src = message.data;
+                }
+
+                // Recalculate differences if active
+                if (state.showDifferences) {
+                    calculateAllDifferences();
+                }
+
+                // Refresh dissolve overlay if needed
+                updateDissolve();
+            }
+        }
     });
 
     window.addEventListener('keydown', handleAltDigitFallback, true);
@@ -932,6 +941,91 @@
 
     renderHelpContent();
     updateStatusLine();
+
+    // Context menu
+    function showContextMenu(x, y) {
+        // Update dynamic labels
+        const diffItem = contextMenu.querySelector('[data-action="toggleDifferences"]');
+        if (diffItem) {
+            const checked = state.showDifferences ? '✓' : '  ';
+            diffItem.innerHTML = `<span class="check-mark">${checked}</span> Differences`;
+        }
+
+        const modeItem = contextMenu.querySelector('[data-action="toggleMode"]');
+        if (modeItem) {
+            const nextMode = state.renderMode === 'mosaic' ? 'Overlay' : 'Mosaic';
+            modeItem.textContent = `Switch to ${nextMode}`;
+        }
+
+        contextMenu.classList.remove('hidden');
+
+        // Position and keep within viewport
+        const menuRect = contextMenu.getBoundingClientRect();
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        if (x + menuRect.width > vw) x = vw - menuRect.width - 4;
+        if (y + menuRect.height > vh) y = vh - menuRect.height - 4;
+        if (x < 0) x = 4;
+        if (y < 0) y = 4;
+
+        contextMenu.style.left = `${x}px`;
+        contextMenu.style.top = `${y}px`;
+    }
+
+    function hideContextMenu() {
+        contextMenu.classList.add('hidden');
+    }
+
+    container.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        showContextMenu(e.clientX, e.clientY);
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!contextMenu.contains(e.target)) {
+            hideContextMenu();
+        }
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            hideContextMenu();
+        }
+    });
+
+    contextMenu.addEventListener('click', (e) => {
+        const item = e.target.closest('.context-menu-item');
+        if (!item) return;
+
+        const action = item.dataset.action;
+        hideContextMenu();
+
+        switch (action) {
+            case 'fit':
+                resetView();
+                break;
+            case 'zoom100':
+                state.scale = 1;
+                state.pointX = 0;
+                state.pointY = 0;
+                updateTransform();
+                updateZoomDisplay();
+                break;
+            case 'toggleMode': {
+                const nextMode = state.renderMode === 'mosaic' ? 'overlay' : 'mosaic';
+                renderModeSelector.value = nextMode;
+                setRenderMode(nextMode, true);
+                break;
+            }
+            case 'toggleDifferences':
+                differencesCheckbox.checked = !differencesCheckbox.checked;
+                toggleDifferences(differencesCheckbox.checked);
+                break;
+            case 'help':
+                setHelpVisible(true);
+                break;
+        }
+    });
 
     vscode.postMessage({ command: 'webviewReady' });
 

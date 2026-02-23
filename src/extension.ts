@@ -249,6 +249,33 @@ export function activate(context: vscode.ExtensionContext): void {
             ImageDiffPanel.currentPanel?.cycleImagePrevious();
         })
     );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('vantage.sidebarRevealInExplorer', (item?: SidebarNode) => {
+            const node = item ?? sidebarTreeView.selection[0];
+            if (node) {
+                void vscode.commands.executeCommand('revealFileInOS', node.uri);
+            }
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('vantage.sidebarCopyPath', (item?: SidebarNode) => {
+            const node = item ?? sidebarTreeView.selection[0];
+            if (node) {
+                void vscode.env.clipboard.writeText(node.uri.fsPath);
+            }
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('vantage.sidebarOpenNative', (item?: SidebarNode) => {
+            const node = item ?? sidebarTreeView.selection[0];
+            if (node) {
+                void vscode.env.openExternal(node.uri);
+            }
+        })
+    );
 }
 
 function updateSidebarUi(

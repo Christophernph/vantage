@@ -1,10 +1,10 @@
 {
     "name": "vantage",
-    "displayName": "Vantage",
-    "publisher": "vantage",
+    "displayName": "Vantage Image Compare",
+    "publisher": "vantage-rd",
     "repository": "https://github.com/lizhogn/vantage",
     "description": "Synchronized image comparison with overlay support",
-    "version": "0.0.4",
+    "version": "1.0.0",
     "icon": "media/icon.png",
     "engines": {
         "vscode": "^1.80.0"
@@ -20,6 +20,9 @@
         "onCommand:vantage.sidebarClearFilterPattern",
         "onCommand:vantage.sidebarOpenInEditor",
         "onCommand:vantage.sidebarRefresh",
+        "onCommand:vantage.sidebarRevealInExplorer",
+        "onCommand:vantage.sidebarCopyPath",
+        "onCommand:vantage.sidebarOpenNative",
         "onView:vantage-sidebar"
     ],
     "main": "./out/extension.js",
@@ -101,6 +104,18 @@
             {
                 "command": "vantage.cycleImagePrevious",
                 "title": "Vantage: Cycle Image Previous"
+            },
+            {
+                "command": "vantage.sidebarRevealInExplorer",
+                "title": "Reveal in Explorer"
+            },
+            {
+                "command": "vantage.sidebarCopyPath",
+                "title": "Copy Path"
+            },
+            {
+                "command": "vantage.sidebarOpenNative",
+                "title": "Open with Default App"
             }
         ],
         "menus": {
@@ -136,6 +151,28 @@
                     "command": "vantage.sidebarClearFilterPattern",
                     "when": "view == vantage-sidebar && vantage.sidebarFilterActive",
                     "group": "navigation@5"
+                }
+            ],
+            "view/item/context": [
+                {
+                    "command": "vantage.sidebarOpenInEditor",
+                    "when": "view == vantage-sidebar",
+                    "group": "1_compare@1"
+                },
+                {
+                    "command": "vantage.sidebarRevealInExplorer",
+                    "when": "view == vantage-sidebar",
+                    "group": "2_files@1"
+                },
+                {
+                    "command": "vantage.sidebarOpenNative",
+                    "when": "view == vantage-sidebar && viewItem == image",
+                    "group": "2_files@2"
+                },
+                {
+                    "command": "vantage.sidebarCopyPath",
+                    "when": "view == vantage-sidebar",
+                    "group": "3_copy@1"
                 }
             ]
         },
