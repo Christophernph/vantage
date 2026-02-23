@@ -1,0 +1,59 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Extension: Uninstall",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "-ic",
+        "code --list-extensions | grep -qx 'vantage-rd.vantage' && code --uninstall-extension vantage-rd.vantage || true"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Extension: Build",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "-ic",
+        "npm run compile"
+      ],
+      "problemMatcher": [
+        "$tsc"
+      ],
+      "group": "build"
+    },
+    {
+      "label": "Extension: Package VSIX",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "-ic",
+        "npx @vscode/vsce package --skip-license --out vantage-local.vsix"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Extension: Install VSIX",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "-ic",
+        "code --install-extension vantage-local.vsix --force"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Extension: Reinstall from local VSIX",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "Extension: Uninstall",
+        "Extension: Build",
+        "Extension: Package VSIX",
+        "Extension: Install VSIX"
+      ],
+      "problemMatcher": []
+    }
+  ]
+}
