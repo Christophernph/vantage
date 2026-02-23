@@ -7,6 +7,15 @@ function isImageUri(uri: vscode.Uri): boolean {
     return ext !== undefined && IMAGE_EXTENSIONS.has(ext);
 }
 
+function toDisplayPath(uri: vscode.Uri): string {
+    if (uri.scheme === 'file') {
+        return uri.fsPath;
+    }
+
+    const authoritySegment = uri.authority ? `//${uri.authority}` : '';
+    return `${uri.scheme}:${authoritySegment}${uri.path}`;
+}
+
 export class SidebarNode extends vscode.TreeItem {
     public readonly uri: vscode.Uri;
     public readonly nodeType: 'folder' | 'image';
@@ -26,7 +35,7 @@ export class SidebarNode extends vscode.TreeItem {
         this.iconPath = nodeType === 'folder'
             ? new vscode.ThemeIcon('folder')
             : new vscode.ThemeIcon('file-media');
-        this.tooltip = uri.fsPath;
+        this.tooltip = toDisplayPath(uri);
 
         if (nodeType === 'folder' && typeof imageCount === 'number') {
             this.description = `${imageCount}`;
@@ -115,7 +124,7 @@ export class SidebarProvider implements vscode.TreeDataProvider<SidebarNode> {
         if (!this._rootUri) {
             return 'No path selected';
         }
-        return this._rootUri.fsPath;
+        return toDisplayPath(this._rootUri);
     }
 
     public getFilterLabel(): string {

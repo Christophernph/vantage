@@ -73,22 +73,18 @@ body {
 .render-mode-control {
     display: flex;
     align-items: center;
-    gap: 6px;
-}
-
-.render-mode-control label {
-    font-size: 11px;
-    opacity: 0.8;
+    flex: 0 0 auto;
 }
 
 .render-mode-selector {
     background-color: var(--vscode-input-background);
     color: var(--vscode-input-foreground);
     border: 1px solid var(--vscode-input-border);
-    padding: 4px 8px;
+    padding: 3px 8px;
     font-size: 12px;
     border-radius: 3px;
     cursor: pointer;
+    height: 24px;
 }
 
 .render-mode-selector:hover {
@@ -161,11 +157,13 @@ body:not(.overlay-mode) .overlay-active-control {
     display: none;
 }
 
-.overlay-active-control details {
+.overlay-active-control details,
+.reference-control details {
     position: relative;
 }
 
-.overlay-active-control summary {
+.overlay-active-control summary,
+.reference-control summary {
     list-style: none;
     background-color: var(--vscode-input-background);
     color: var(--vscode-input-foreground);
@@ -179,15 +177,18 @@ body:not(.overlay-mode) .overlay-active-control {
     position: relative;
 }
 
-.overlay-active-control summary:hover {
+.overlay-active-control summary:hover,
+.reference-control summary:hover {
     background-color: var(--vscode-list-hoverBackground);
 }
 
-.overlay-active-control summary::-webkit-details-marker {
+.overlay-active-control summary::-webkit-details-marker,
+.reference-control summary::-webkit-details-marker {
     display: none;
 }
 
-.overlay-active-control summary::after {
+.overlay-active-control summary::after,
+.reference-control summary::after {
     content: '▾';
     position: absolute;
     right: 8px;
@@ -197,7 +198,8 @@ body:not(.overlay-mode) .overlay-active-control {
     pointer-events: none;
 }
 
-.overlay-active-control details[open] summary::after {
+.overlay-active-control details[open] summary::after,
+.reference-control details[open] summary::after {
     content: '▴';
 }
 
@@ -258,25 +260,6 @@ body:not(.overlay-mode) .overlay-active-control {
 .overlay-active-remove:disabled {
     cursor: not-allowed;
     opacity: 0.45;
-}
-
-.reference-control label {
-    font-size: 11px;
-    opacity: 0.8;
-}
-
-.reference-selector {
-    background-color: var(--vscode-input-background);
-    color: var(--vscode-input-foreground);
-    border: 1px solid var(--vscode-input-border);
-    padding: 4px 8px;
-    font-size: 12px;
-    border-radius: 3px;
-    cursor: pointer;
-}
-
-.reference-selector:hover {
-    background-color: var(--vscode-list-hoverBackground);
 }
 
 #overlayBtn {

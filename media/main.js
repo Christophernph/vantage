@@ -8,8 +8,9 @@
     const zoomLevelEl = document.getElementById('zoom-level');
     const statusLine = document.getElementById('status-line');
     const differencesCheckbox = document.getElementById('differencesCheckbox');
-    const referenceSelector = document.getElementById('referenceSelector');
-    const referenceLabel = document.querySelector('label[for="referenceSelector"]');
+    const referenceDetails = document.getElementById('referenceDetails');
+    const referenceSummary = document.getElementById('referenceSummary');
+    const referenceList = document.getElementById('referenceList');
     const renderModeSelector = document.getElementById('renderModeSelector');
     const overlayActiveDetails = document.getElementById('overlayActiveDetails');
     const overlayActiveSummary = document.getElementById('overlayActiveSummary');
@@ -78,7 +79,7 @@
                 <li><strong>Alt+1..9</strong>: Jump to image 1-9</li>
                 <li><strong>Alt+Tab</strong>: Next image</li>
                 <li><strong>Shift+Alt+Tab</strong>: Previous image</li>
-                <li><strong>Reference dropdown</strong>: Set reference in Mosaic</li>
+                <li><strong>Reference dropdown</strong>: Set/remove images in Mosaic</li>
                 <li><strong>Active dropdown</strong>: Set/remove active images in Overlay</li>
                 <li><strong>Fit</strong>: Reset to fit all images</li>
                 <li><strong>?</strong>: Toggle this help overlay</li>
@@ -94,15 +95,55 @@
         helpOverlay.classList.toggle('hidden', !visible);
     }
 
-    function updateReferenceSelector() {
-        referenceSelector.innerHTML = '';
+    function updateReferenceDropdown() {
+        if (!referenceSummary || !referenceList) {
+            return;
+        }
+
+        const total = state.images.length;
+        referenceSummary.textContent = total > 0
+            ? `Reference: ${state.referenceIndex + 1}/${total}`
+            : 'Reference: -';
+
+        referenceList.innerHTML = '';
+
         state.images.forEach((img, index) => {
-            const option = document.createElement('option');
-            option.value = index;
-            option.textContent = getFilename(img.filename);
-            option.selected = index === state.referenceIndex;
-            referenceSelector.appendChild(option);
+            const row = document.createElement('div');
+            row.className = 'overlay-active-item';
+
+            const selectBtn = document.createElement('button');
+            selectBtn.className = 'overlay-active-select';
+            selectBtn.textContent = `${index + 1}. ${getFilename(img.filename)}`;
+            selectBtn.title = img.filename;
+            selectBtn.classList.toggle('active', index === state.referenceIndex);
+            selectBtn.addEventListener('click', () => {
+                setReferenceIndex(index, true);
+                if (referenceDetails) {
+                    referenceDetails.open = false;
+                }
+            });
+
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'overlay-active-remove';
+            removeBtn.textContent = '×';
+            removeBtn.title = state.images.length <= 2
+                ? 'At least 2 images are required'
+                : `Remove ${getFilename(img.filename)}`;
+            removeBtn.disabled = state.images.length <= 2;
+            removeBtn.addEventListener('click', (event) => {
+                event.stopPropagation();
+                removeImageAt(index);
+            });
+
+            row.appendChild(selectBtn);
+            row.appendChild(removeBtn);
+            referenceList.appendChild(row);
         });
+    }
+
+    function updateSelectorDropdowns() {
+        updateReferenceDropdown();
+        updateOverlayActiveDropdown();
     }
 
     function setReferenceIndex(index, syncActive = true) {
@@ -111,14 +152,13 @@
         }
 
         state.referenceIndex = index;
-        referenceSelector.value = index.toString();
         if (syncActive) {
             state.activeOverlayIndex = index;
         }
 
         updateReferenceHighlight();
         updateDissolve();
-        updateOverlayActiveDropdown();
+        updateSelectorDropdowns();
         updateStatusLine();
     }
 
@@ -130,12 +170,11 @@
         state.activeOverlayIndex = index;
         if (syncReference) {
             state.referenceIndex = index;
-            referenceSelector.value = index.toString();
         }
 
         updateReferenceHighlight();
         updateDissolve();
-        updateOverlayActiveDropdown();
+        updateSelectorDropdowns();
         updateStatusLine();
     }
 
@@ -324,7 +363,10 @@
         }
 
         normalizeIndices();
-        updateReferenceSelector();
+        if (state.renderMode !== 'overlay') {
+            state.activeOverlayIndex = state.referenceIndex;
+        }
+        updateSelectorDropdowns();
         createImageContainers();
         updateStatusLine();
     }
@@ -454,23 +496,25 @@
         if (isOverlay) {
             removeOverlayIncompatibleControls();
             clearOverlayArtifacts();
-            if (referenceLabel) {
-                referenceLabel.textContent = 'Active:';
-            }
-            if (overlayActiveDetails && closeOverlayDropdown) {
-                overlayActiveDetails.open = false;
+            if (closeOverlayDropdown) {
+                if (overlayActiveDetails) {
+                    overlayActiveDetails.open = false;
+                }
+                if (referenceDetails) {
+                    referenceDetails.open = false;
+                }
             }
             applyOverlayVisibility();
         } else {
             restoreModeSpecificControls();
-            if (referenceLabel) {
-                referenceLabel.textContent = 'Reference:';
+            if (closeOverlayDropdown && referenceDetails) {
+                referenceDetails.open = false;
             }
             applyMosaicVisibility();
         }
 
         updateStatusLine();
-        updateOverlayActiveDropdown();
+        updateSelectorDropdowns();
         renderHelpContent();
     }
 
@@ -804,15 +848,6 @@
         toggleDifferences(e.target.checked);
     });
 
-    referenceSelector.addEventListener('change', (e) => {
-        const index = parseInt(e.target.value);
-        if (state.renderMode === 'overlay') {
-            selectImageIndex(index, false);
-            return;
-        }
-        setReferenceIndex(index, true);
-    });
-
     dissolveSlider.addEventListener('input', (e) => {
         if (state.renderMode === 'overlay') {
             return;
@@ -904,7 +939,7 @@
             state.loadedImageCount++;
 
             if (state.loadedImageCount === state.expectedImageCount) {
-                updateReferenceSelector();
+                updateSelectorDropdowns();
                 createImageContainers();
                 resetView();
                 updateStatusLine();

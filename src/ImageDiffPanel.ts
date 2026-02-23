@@ -338,6 +338,12 @@ export class ImageDiffPanel {
             <button id="fitAllBtn" title="Fit all images">Fit</button>
             <button id="helpBtn" title="Show shortcuts">?</button>
         </div>
+        <div id="renderModeControl" class="render-mode-control">
+            <select id="renderModeSelector" class="render-mode-selector" aria-label="Render mode">
+                <option value="mosaic">Mosaic</option>
+                <option value="overlay">Overlay</option>
+            </select>
+        </div>
         <div id="status-line" class="status-line">Image 1/0 · Mosaic · Ref: -</div>
         <button id="overlayBtn" title="Overlay Right on Left">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -345,13 +351,6 @@ export class ImageDiffPanel {
             </svg>
         </button>
         <div class="mode-controls">
-            <div id="renderModeControl" class="render-mode-control">
-                <label for="renderModeSelector">Mode:</label>
-                <select id="renderModeSelector" class="render-mode-selector">
-                    <option value="mosaic">Mosaic</option>
-                    <option value="overlay">Overlay</option>
-                </select>
-            </div>
             <div id="dissolveControl" class="dissolve-control">
                 <label for="dissolveSlider">Dissolve:</label>
                 <input type="range" id="dissolveSlider" min="0" max="100" value="0">
@@ -362,9 +361,10 @@ export class ImageDiffPanel {
                 <label for="differencesCheckbox">Differences</label>
             </div>
             <div id="referenceControl" class="reference-control">
-                <label for="referenceSelector">Reference:</label>
-                <select id="referenceSelector" class="reference-selector">
-                </select>
+                <details id="referenceDetails">
+                    <summary id="referenceSummary">Reference: -</summary>
+                    <div id="referenceList" class="overlay-active-list"></div>
+                </details>
             </div>
             <div id="overlayActiveControl" class="overlay-active-control">
                 <details id="overlayActiveDetails">

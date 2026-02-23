@@ -104,35 +104,23 @@ export function activate(context: vscode.ExtensionContext): void {
 
     context.subscriptions.push(
         vscode.commands.registerCommand('vantage.sidebarSetPath', async () => {
-            const defaultPath = sidebarProvider.rootUri?.fsPath
-                ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
-                ?? '';
+            const defaultUri = sidebarProvider.rootUri
+                ?? vscode.workspace.workspaceFolders?.[0]?.uri;
 
-            const enteredPath = await vscode.window.showInputBox({
+            const selected = await vscode.window.showOpenDialog({
                 title: 'Vantage: Set Sidebar Path',
-                prompt: 'Enter folder path to browse images',
-                value: defaultPath,
-                ignoreFocusOut: true
+                openLabel: 'Select Sidebar Folder',
+                canSelectFiles: false,
+                canSelectFolders: true,
+                canSelectMany: false,
+                defaultUri
             });
 
-            if (enteredPath === undefined) {
+            if (!selected || selected.length === 0) {
                 return;
             }
 
-            const trimmed = enteredPath.trim();
-            if (!trimmed) {
-                const fallback = vscode.workspace.workspaceFolders?.[0]?.uri;
-                sidebarProvider.setRootUri(fallback);
-                updateSidebarUi(context, sidebarTreeView, sidebarProvider);
-                if (fallback) {
-                    void context.workspaceState.update(SIDEBAR_ROOT_KEY, fallback.fsPath);
-                } else {
-                    void context.workspaceState.update(SIDEBAR_ROOT_KEY, undefined);
-                }
-                return;
-            }
-
-            const candidateUri = vscode.Uri.file(trimmed);
+            const candidateUri = selected[0];
             let stat: vscode.FileStat;
             try {
                 stat = await vscode.workspace.fs.stat(candidateUri);
@@ -148,7 +136,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
             sidebarProvider.setRootUri(candidateUri);
             updateSidebarUi(context, sidebarTreeView, sidebarProvider);
-            void context.workspaceState.update(SIDEBAR_ROOT_KEY, candidateUri.fsPath);
+            void context.workspaceState.update(SIDEBAR_ROOT_KEY, candidateUri.toString());
         })
     );
 
@@ -306,7 +294,11 @@ function updateSidebarUi(
 function getInitialSidebarRoot(context: vscode.ExtensionContext): vscode.Uri | undefined {
     const persisted = context.workspaceState.get<string>(SIDEBAR_ROOT_KEY);
     if (persisted) {
-        return vscode.Uri.file(persisted);
+        try {
+            return vscode.Uri.parse(persisted, true);
+        } catch {
+            return vscode.Uri.file(persisted);
+        }
     }
     return vscode.workspace.workspaceFolders?.[0]?.uri;
 }
