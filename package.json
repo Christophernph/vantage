@@ -1,0 +1,228 @@
+{
+    "name": "vantage",
+    "displayName": "Vantage",
+    "publisher": "vantage",
+    "repository": "https://github.com/lizhogn/vantage",
+    "description": "Synchronized image comparison with overlay support",
+    "version": "0.0.4",
+    "icon": "media/icon.png",
+    "engines": {
+        "vscode": "^1.80.0"
+    },
+    "categories": [
+        "Other"
+    ],
+    "activationEvents": [
+        "onCommand:vantage.start",
+        "onCommand:vantage.compareImages",
+        "onCommand:vantage.sidebarSetPath",
+        "onCommand:vantage.sidebarSetFilterPattern",
+        "onCommand:vantage.sidebarClearFilterPattern",
+        "onCommand:vantage.sidebarOpenInEditor",
+        "onCommand:vantage.sidebarRefresh",
+        "onView:vantage-sidebar"
+    ],
+    "main": "./out/extension.js",
+    "contributes": {
+        "commands": [
+            {
+                "command": "vantage.start",
+                "title": "Vantage: Start"
+            },
+            {
+                "command": "vantage.compareImages",
+                "title": "Vantage: Compare Images"
+            },
+            {
+                "command": "vantage.sidebarSetPath",
+                "title": "Vantage: Set Sidebar Path",
+                "icon": "$(folder-opened)"
+            },
+            {
+                "command": "vantage.sidebarOpenInEditor",
+                "title": "Vantage: Open in Editor",
+                "icon": "$(play)"
+            },
+            {
+                "command": "vantage.sidebarRefresh",
+                "title": "Vantage: Refresh Sidebar",
+                "icon": "$(refresh)"
+            },
+            {
+                "command": "vantage.sidebarSetFilterPattern",
+                "title": "Vantage: Set Sidebar Filter Pattern",
+                "icon": "$(regex)"
+            },
+            {
+                "command": "vantage.sidebarClearFilterPattern",
+                "title": "Vantage: Clear Sidebar Filter Pattern",
+                "icon": "$(clear-all)"
+            },
+            {
+                "command": "vantage.selectImage1",
+                "title": "Vantage: Select Image 1"
+            },
+            {
+                "command": "vantage.selectImage2",
+                "title": "Vantage: Select Image 2"
+            },
+            {
+                "command": "vantage.selectImage3",
+                "title": "Vantage: Select Image 3"
+            },
+            {
+                "command": "vantage.selectImage4",
+                "title": "Vantage: Select Image 4"
+            },
+            {
+                "command": "vantage.selectImage5",
+                "title": "Vantage: Select Image 5"
+            },
+            {
+                "command": "vantage.selectImage6",
+                "title": "Vantage: Select Image 6"
+            },
+            {
+                "command": "vantage.selectImage7",
+                "title": "Vantage: Select Image 7"
+            },
+            {
+                "command": "vantage.selectImage8",
+                "title": "Vantage: Select Image 8"
+            },
+            {
+                "command": "vantage.selectImage9",
+                "title": "Vantage: Select Image 9"
+            },
+            {
+                "command": "vantage.cycleImage",
+                "title": "Vantage: Cycle Image"
+            },
+            {
+                "command": "vantage.cycleImagePrevious",
+                "title": "Vantage: Cycle Image Previous"
+            }
+        ],
+        "menus": {
+            "explorer/context": [
+                {
+                    "command": "vantage.compareImages",
+                    "when": "resourceExtname =~ /\\.(png|jpg|jpeg|gif|webp|bmp|svg)$/i",
+                    "group": "2_workspace"
+                }
+            ],
+            "view/title": [
+                {
+                    "command": "vantage.sidebarSetPath",
+                    "when": "view == vantage-sidebar",
+                    "group": "navigation@1"
+                },
+                {
+                    "command": "vantage.sidebarOpenInEditor",
+                    "when": "view == vantage-sidebar",
+                    "group": "navigation@2"
+                },
+                {
+                    "command": "vantage.sidebarRefresh",
+                    "when": "view == vantage-sidebar",
+                    "group": "navigation@3"
+                },
+                {
+                    "command": "vantage.sidebarSetFilterPattern",
+                    "when": "view == vantage-sidebar",
+                    "group": "navigation@4"
+                },
+                {
+                    "command": "vantage.sidebarClearFilterPattern",
+                    "when": "view == vantage-sidebar && vantage.sidebarFilterActive",
+                    "group": "navigation@5"
+                }
+            ]
+        },
+        "viewsContainers": {
+            "activitybar": [
+                {
+                    "id": "vantage-container",
+                    "title": "Vantage",
+                    "icon": "media/icon.png"
+                }
+            ]
+        },
+        "views": {
+            "vantage-container": [
+                {
+                    "id": "vantage-sidebar",
+                    "name": "Vantage",
+                    "icon": "media/icon.png"
+                }
+            ]
+        },
+        "keybindings": [
+            {
+                "command": "vantage.selectImage1",
+                "key": "alt+1",
+                "when": "webviewFocus"
+            },
+            {
+                "command": "vantage.selectImage2",
+                "key": "alt+2",
+                "when": "webviewFocus"
+            },
+            {
+                "command": "vantage.selectImage3",
+                "key": "alt+3",
+                "when": "webviewFocus"
+            },
+            {
+                "command": "vantage.selectImage4",
+                "key": "alt+4",
+                "when": "webviewFocus"
+            },
+            {
+                "command": "vantage.selectImage5",
+                "key": "alt+5",
+                "when": "webviewFocus"
+            },
+            {
+                "command": "vantage.selectImage6",
+                "key": "alt+6",
+                "when": "webviewFocus"
+            },
+            {
+                "command": "vantage.selectImage7",
+                "key": "alt+7",
+                "when": "webviewFocus"
+            },
+            {
+                "command": "vantage.selectImage8",
+                "key": "alt+8",
+                "when": "webviewFocus"
+            },
+            {
+                "command": "vantage.selectImage9",
+                "key": "alt+9",
+                "when": "webviewFocus"
+            },
+            {
+                "command": "vantage.cycleImage",
+                "key": "alt+tab",
+                "when": "webviewFocus"
+            },
+            {
+                "command": "vantage.cycleImagePrevious",
+                "key": "shift+alt+tab",
+                "when": "webviewFocus"
+            }
+        ]
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run compile",
+        "compile": "tsc -p ./",
+        "watch": "tsc -watch -p ./"
+    },
+    "devDependencies": {
+        "@types/vscode": "^1.80.0",
+        "@types/node": "18.x",
+        "typescript": "^5.1.3"
+    }
+}
