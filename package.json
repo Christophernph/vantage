@@ -2,7 +2,7 @@
     "name": "vantage",
     "displayName": "Vantage Image Compare",
     "publisher": "vantage-rd",
-    "repository": "https://github.com/lizhogn/vantage",
+    "repository": "https://github.com/Christophernph/vantage",
     "description": "Synchronized image comparison with overlay support",
     "version": "1.4.0",
     "icon": "media/icon.png",
