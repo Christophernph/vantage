@@ -363,6 +363,15 @@ body.overlay-mode #overlayBtn {
     font-size: 14px;
 }
 
+.loading-placeholder {
+    opacity: 0.72;
+    font-size: 13px;
+    background: color-mix(in srgb, var(--vscode-editor-background) 55%, transparent);
+    border: 1px solid var(--vscode-panel-border);
+    border-radius: 4px;
+    padding: 4px 8px;
+}
+
 .filename {
     position: absolute;
     top: 10px;

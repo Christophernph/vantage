@@ -96,7 +96,7 @@
     }
 
     function updateFilenameLabel(labelEl, image) {
-        if (!labelEl || !image) {
+        if (!labelEl) {
             return;
         }
 
@@ -104,8 +104,12 @@
 
         const nameSpan = document.createElement('span');
         nameSpan.className = 'filename-name';
-        nameSpan.textContent = getFilename(image.filename);
+        nameSpan.textContent = image?.filename ? getFilename(image.filename) : 'Loading image…';
         labelEl.appendChild(nameSpan);
+
+        if (!image || !image.filename) {
+            return;
+        }
 
         const metadata = getImageMetadataParts(image).join(' • ');
         if (metadata) {
@@ -114,6 +118,13 @@
             metadataSpan.textContent = metadata;
             labelEl.appendChild(metadataSpan);
         }
+    }
+
+    function getImageListLabel(image, index) {
+        if (image?.filename) {
+            return getFilename(image.filename);
+        }
+        return `Loading image ${index + 1}…`;
     }
 
     function updateZoomDisplay() {
@@ -165,14 +176,16 @@
 
         referenceList.innerHTML = '';
 
-        state.images.forEach((img, index) => {
+        for (let index = 0; index < state.images.length; index++) {
+            const img = state.images[index];
             const row = document.createElement('div');
             row.className = 'overlay-active-item';
 
             const selectBtn = document.createElement('button');
             selectBtn.className = 'overlay-active-select';
-            selectBtn.textContent = `${index + 1}. ${getFilename(img.filename)}`;
-            selectBtn.title = img.filename;
+            const label = getImageListLabel(img, index);
+            selectBtn.textContent = `${index + 1}. ${label}`;
+            selectBtn.title = label;
             selectBtn.classList.toggle('active', index === state.referenceIndex);
             selectBtn.addEventListener('click', () => {
                 setReferenceIndex(index, true);
@@ -186,7 +199,7 @@
             removeBtn.textContent = '×';
             removeBtn.title = state.images.length <= 2
                 ? 'At least 2 images are required'
-                : `Remove ${getFilename(img.filename)}`;
+                : `Remove ${label}`;
             removeBtn.disabled = state.images.length <= 2;
             removeBtn.addEventListener('click', (event) => {
                 event.stopPropagation();
@@ -196,7 +209,7 @@
             row.appendChild(selectBtn);
             row.appendChild(removeBtn);
             referenceList.appendChild(row);
-        });
+        }
     }
 
     function updateSelectorDropdowns() {
@@ -441,14 +454,16 @@
 
         overlayActiveList.innerHTML = '';
 
-        state.images.forEach((img, index) => {
+        for (let index = 0; index < state.images.length; index++) {
+            const img = state.images[index];
             const row = document.createElement('div');
             row.className = 'overlay-active-item';
 
             const selectBtn = document.createElement('button');
             selectBtn.className = 'overlay-active-select';
-            selectBtn.textContent = `${index + 1}. ${getFilename(img.filename)}`;
-            selectBtn.title = img.filename;
+            const label = getImageListLabel(img, index);
+            selectBtn.textContent = `${index + 1}. ${label}`;
+            selectBtn.title = label;
             selectBtn.classList.toggle('active', index === state.activeOverlayIndex);
             selectBtn.addEventListener('click', () => {
                 selectImageIndex(index, false);
@@ -462,7 +477,7 @@
             removeBtn.textContent = '×';
             removeBtn.title = state.images.length <= 2
                 ? 'At least 2 images are required'
-                : `Remove ${getFilename(img.filename)}`;
+                : `Remove ${label}`;
             removeBtn.disabled = state.images.length <= 2;
             removeBtn.addEventListener('click', (event) => {
                 event.stopPropagation();
@@ -472,7 +487,7 @@
             row.appendChild(selectBtn);
             row.appendChild(removeBtn);
             overlayActiveList.appendChild(row);
-        });
+        }
     }
 
     function restoreModeSpecificControls() {
@@ -598,7 +613,8 @@
         state.imageContainers = [];
         imagesContainer.setAttribute('data-count', state.images.length.toString());
 
-        state.images.forEach((img, index) => {
+        for (let index = 0; index < state.images.length; index++) {
+            const img = state.images[index];
             const containerDiv = document.createElement('div');
             containerDiv.className = 'image-item-container';
             containerDiv.id = `image-container-${index}`;
@@ -624,12 +640,26 @@
                 imageState.width = imgElement.naturalWidth;
                 imageState.height = imgElement.naturalHeight;
                 updateFilenameLabel(filenameDiv, imageState);
+                placeholderDiv.style.display = 'none';
+                imgElement.style.display = 'block';
 
                 if (index === state.activeOverlayIndex) {
                     updateStatusLine();
                 }
             });
-            imgElement.src = img.data;
+
+            const placeholderDiv = document.createElement('div');
+            placeholderDiv.className = 'placeholder loading-placeholder';
+            placeholderDiv.textContent = 'Loading…';
+
+            if (img?.data) {
+                imgElement.src = img.data;
+                imgElement.style.display = 'block';
+                placeholderDiv.style.display = 'none';
+            } else {
+                imgElement.style.display = 'none';
+                placeholderDiv.style.display = 'block';
+            }
 
             const diffCanvas = document.createElement('canvas');
             diffCanvas.className = 'comparison-diff-canvas';
@@ -639,6 +669,7 @@
             overlayImg.draggable = false;
 
             containerDiv.appendChild(filenameDiv);
+            containerDiv.appendChild(placeholderDiv);
             containerDiv.appendChild(imgElement);
             containerDiv.appendChild(overlayImg);
             containerDiv.appendChild(diffCanvas);
@@ -650,9 +681,10 @@
                 overlayImage: overlayImg,
                 diffCanvas: diffCanvas,
                 filenameLabel: filenameDiv,
+                placeholder: placeholderDiv,
                 imageIndex: index
             });
-        });
+        }
 
         updateTransform();
         updateDissolve();
@@ -670,10 +702,21 @@
         }
 
         const referenceImg = state.images[state.referenceIndex];
-        if (!referenceImg) return;
+        if (!referenceImg?.data) {
+            state.imageContainers.forEach(imgContainer => {
+                imgContainer.overlayImage.style.display = 'none';
+            });
+            return;
+        }
 
         state.imageContainers.forEach(imgContainer => {
             if (imgContainer.imageIndex === state.referenceIndex) {
+                imgContainer.overlayImage.style.display = 'none';
+                return;
+            }
+
+            const comparisonImg = state.images[imgContainer.imageIndex];
+            if (!comparisonImg?.data) {
                 imgContainer.overlayImage.style.display = 'none';
                 return;
             }
@@ -706,7 +749,7 @@
         if (state.images.length < 2) return;
 
         const referenceImg = state.images[state.referenceIndex];
-        if (!referenceImg) return;
+        if (!referenceImg?.data) return;
 
         state.imageContainers.forEach(imgContainer => {
             if (imgContainer.imageIndex === state.referenceIndex) {
@@ -716,7 +759,7 @@
             }
 
             const comparisonImg = state.images[imgContainer.imageIndex];
-            if (!comparisonImg) return;
+            if (!comparisonImg?.data) return;
 
             calculateDifference(referenceImg, comparisonImg, imgContainer.diffCanvas);
         });
@@ -958,7 +1001,7 @@
     overlayBtn.addEventListener('mousedown', () => {
         if (state.renderMode === 'overlay') return;
         const referenceImage = state.images[state.referenceIndex];
-        if (!referenceImage) return;
+        if (!referenceImage?.data) return;
 
         state.imageContainers.forEach(imgContainer => {
             if (imgContainer.imageIndex !== state.referenceIndex) {
@@ -975,11 +1018,14 @@
         const message = event.data;
 
         if (message.command === 'imagesCount') {
-            state.images = [];
+            state.images = new Array(message.count);
             state.expectedImageCount = message.count;
             state.loadedImageCount = 0;
             state.referenceIndex = 0;
             state.activeOverlayIndex = 0;
+            createImageContainers();
+            resetView();
+            updateSelectorDropdowns();
             updateStatusLine();
             return;
         }
@@ -1012,17 +1058,33 @@
             };
             state.loadedImageCount++;
 
-            if (state.loadedImageCount === state.expectedImageCount) {
-                updateSelectorDropdowns();
-                createImageContainers();
-                resetView();
-                updateStatusLine();
+            const ic = state.imageContainers[message.index];
+            if (ic) {
+                ic.image.src = message.data;
+                updateFilenameLabel(ic.filenameLabel, state.images[message.index]);
+                if (ic.placeholder) {
+                    ic.placeholder.style.display = 'none';
+                }
+                ic.image.style.display = 'block';
             }
+
+            updateSelectorDropdowns();
+            updateDissolve();
+
+            if (state.showDifferences) {
+                calculateAllDifferences();
+            }
+
+            updateStatusLine();
         }
 
         if (message.command === 'imageUpdated') {
             const idx = message.index;
             if (idx >= 0 && idx < state.images.length) {
+                if (!state.images[idx]) {
+                    state.images[idx] = {};
+                }
+
                 state.images[idx].data = message.data;
                 state.images[idx].filename = message.filename;
                 state.images[idx].fileSizeBytes = message.fileSizeBytes;
@@ -1034,6 +1096,10 @@
                 if (ic) {
                     ic.image.src = message.data;
                     updateFilenameLabel(ic.filenameLabel, state.images[idx]);
+                    if (ic.placeholder) {
+                        ic.placeholder.style.display = 'none';
+                    }
+                    ic.image.style.display = 'block';
                 }
 
                 updateStatusLine();

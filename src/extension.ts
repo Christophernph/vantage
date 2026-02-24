@@ -76,7 +76,14 @@ export function activate(context: vscode.ExtensionContext): void {
         void context.workspaceState.update(RENDER_MODE_KEY, mode);
     };
 
-    const openPanel = (imageUris?: vscode.Uri[]): void => {
+    const openPanel = async (imageUris?: vscode.Uri[]): Promise<void> => {
+        if (imageUris && imageUris.length > 0) {
+            const shouldOpen = await confirmOpenLargeImageSet(imageUris.length);
+            if (!shouldOpen) {
+                return;
+            }
+        }
+
         ImageDiffPanel.createOrShow(
             context.extensionUri,
             imageUris,
@@ -88,6 +95,21 @@ export function activate(context: vscode.ExtensionContext): void {
                     vscode.window.showWarningMessage('Drop did not contain any supported image files.');
                     return;
                 }
+
+                const existingImages = ImageDiffPanel.currentPanel?.getCurrentImageUris() ?? [];
+                const merged = new Map<string, vscode.Uri>();
+                for (const uri of existingImages) {
+                    merged.set(uri.toString(), uri);
+                }
+                for (const uri of images) {
+                    merged.set(uri.toString(), uri);
+                }
+
+                const shouldAppend = await confirmOpenLargeImageSet(merged.size);
+                if (!shouldAppend) {
+                    return;
+                }
+
                 ImageDiffPanel.currentPanel?.appendImages(images);
             }
         );
@@ -95,7 +117,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
     context.subscriptions.push(
         vscode.commands.registerCommand('vantage.start', () => {
-            openPanel();
+            void openPanel();
         })
     );
 
@@ -113,7 +135,7 @@ export function activate(context: vscode.ExtensionContext): void {
                 return;
             }
 
-            openPanel(uris);
+            void openPanel(uris);
         })
     );
 
@@ -217,12 +239,7 @@ export function activate(context: vscode.ExtensionContext): void {
                 return;
             }
 
-            const shouldOpen = await confirmOpenLargeImageSet(images.length);
-            if (!shouldOpen) {
-                return;
-            }
-
-            openPanel(images);
+            void openPanel(images);
         })
     );
 

@@ -176,6 +176,10 @@ export class ImageDiffPanel {
         void this._loadImages(merged);
     }
 
+    public getCurrentImageUris(): vscode.Uri[] {
+        return [...this._currentImages];
+    }
+
     private _setRenderMode(mode: 'mosaic' | 'overlay'): void {
         this._pendingRenderMode = mode;
         if (!this._webviewReady) {
