@@ -22,6 +22,7 @@ interface StrictPairSession {
     folders: vscode.Uri[];
     groups: StrictPairGroup[];
     index: number;
+    slotPermutation: number[];
 }
 
 interface FolderImageLookup {
@@ -100,6 +101,30 @@ function formatPairStatus(session: StrictPairSession): string {
     }
 
     return `Pair ${session.index + 1}/${session.groups.length}`;
+}
+
+function createIdentityPermutation(size: number): number[] {
+    return Array.from({ length: size }, (_, index) => index);
+}
+
+function isValidPermutation(order: number[], size: number): boolean {
+    if (order.length !== size) {
+        return false;
+    }
+
+    const expected = createIdentityPermutation(size);
+    const actual = [...order].sort((a, b) => a - b);
+    return expected.every((value, index) => actual[index] === value);
+}
+
+function applyPermutationToUris(uris: vscode.Uri[], permutation: number[]): vscode.Uri[] {
+    if (!isValidPermutation(permutation, uris.length)) {
+        return [...uris];
+    }
+
+    return permutation
+        .map(index => uris[index])
+        .filter((uri): uri is vscode.Uri => uri !== undefined);
 }
 
 async function buildFolderImageLookup(folder: vscode.Uri): Promise<FolderImageLookup> {
@@ -233,7 +258,8 @@ export function activate(context: vscode.ExtensionContext): void {
         activeStrictPairSession = {
             folders: selectedFolders,
             groups,
-            index: 0
+            index: 0,
+            slotPermutation: createIdentityPermutation(selectedFolders.length)
         };
 
         if (duplicateKeyCount > 0) {
@@ -260,17 +286,70 @@ export function activate(context: vscode.ExtensionContext): void {
 
         activeStrictPairSession.index = targetIndex;
         const group = activeStrictPairSession.groups[targetIndex];
+        const orderedUris = applyPermutationToUris(group.imageUris, activeStrictPairSession.slotPermutation);
 
         if (ImageDiffPanel.currentPanel) {
-            ImageDiffPanel.currentPanel.loadImages(group.imageUris);
+            ImageDiffPanel.currentPanel.loadImages(orderedUris, [...activeStrictPairSession.slotPermutation]);
             ImageDiffPanel.currentPanel.setPairStatus(formatPairStatus(activeStrictPairSession));
             return;
         }
 
-        await openPanel(group.imageUris, {
+        await openPanel(orderedUris, {
             pairStatus: formatPairStatus(activeStrictPairSession),
-            preserveStrictPairSession: true
+            preserveStrictPairSession: true,
+            pairSlotOrder: [...activeStrictPairSession.slotPermutation]
         });
+    };
+
+    const updateStrictPairPermutation = (order: number[]): void => {
+        if (!activeStrictPairSession) {
+            return;
+        }
+
+        const size = activeStrictPairSession.slotPermutation.length;
+        if (!isValidPermutation(order, size)) {
+            return;
+        }
+
+        activeStrictPairSession.slotPermutation = [...order];
+    };
+
+    const removeStrictPairSlot = (displayIndex: number): void => {
+        if (!activeStrictPairSession) {
+            return;
+        }
+
+        const currentSize = activeStrictPairSession.slotPermutation.length;
+        if (currentSize <= 2) {
+            vscode.window.showWarningMessage('At least 2 folders are required for paired comparison.');
+            return;
+        }
+
+        if (displayIndex < 0 || displayIndex >= currentSize) {
+            return;
+        }
+
+        const originalSlotIndex = activeStrictPairSession.slotPermutation[displayIndex];
+
+        activeStrictPairSession.folders = activeStrictPairSession.folders.filter((_, index) => index !== originalSlotIndex);
+        activeStrictPairSession.groups = activeStrictPairSession.groups.map(group => ({
+            ...group,
+            imageUris: group.imageUris.filter((_, index) => index !== originalSlotIndex)
+        }));
+
+        const updatedPermutation = activeStrictPairSession.slotPermutation
+            .filter((_, index) => index !== displayIndex)
+            .map(index => index > originalSlotIndex ? index - 1 : index);
+
+        activeStrictPairSession.slotPermutation = updatedPermutation;
+
+        if (activeStrictPairSession.folders.length < 2) {
+            clearStrictPairSession();
+            vscode.window.showWarningMessage('Paired comparison ended because fewer than 2 folders remain.');
+            return;
+        }
+
+        void loadStrictPairAtIndex(activeStrictPairSession.index);
     };
 
     const openPanel = async (
@@ -278,6 +357,7 @@ export function activate(context: vscode.ExtensionContext): void {
         options?: {
             pairStatus?: string;
             preserveStrictPairSession?: boolean;
+            pairSlotOrder?: number[];
         }
     ): Promise<void> => {
         if (imageUris && imageUris.length > 0) {
@@ -319,7 +399,14 @@ export function activate(context: vscode.ExtensionContext): void {
 
                 clearStrictPairSession();
                 ImageDiffPanel.currentPanel?.appendImages(images);
-            }
+            },
+            (order: number[]) => {
+                updateStrictPairPermutation(order);
+            },
+            (index: number) => {
+                removeStrictPairSlot(index);
+            },
+            options?.pairSlotOrder
         );
 
         ImageDiffPanel.currentPanel?.setPairStatus(options?.pairStatus ?? '');

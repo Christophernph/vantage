@@ -147,6 +147,61 @@
         return `Loading image ${index + 1}…`;
     }
 
+    function isPairedModeActive() {
+        return Boolean(state.pairStatus);
+    }
+
+    function postImageOrderChanged() {
+        const order = state.images.map((image, index) => {
+            if (Number.isInteger(image?.slotIndex)) {
+                return image.slotIndex;
+            }
+            return index;
+        });
+
+        vscode.postMessage({
+            command: 'imageOrderChanged',
+            order
+        });
+    }
+
+    function remapIndexAfterMove(index, fromIndex, toIndex) {
+        if (index === fromIndex) {
+            return toIndex;
+        }
+
+        if (fromIndex < toIndex && index > fromIndex && index <= toIndex) {
+            return index - 1;
+        }
+
+        if (fromIndex > toIndex && index >= toIndex && index < fromIndex) {
+            return index + 1;
+        }
+
+        return index;
+    }
+
+    function moveImage(fromIndex, toIndex) {
+        if (fromIndex === toIndex) {
+            return;
+        }
+
+        if (fromIndex < 0 || toIndex < 0 || fromIndex >= state.images.length || toIndex >= state.images.length) {
+            return;
+        }
+
+        const [moved] = state.images.splice(fromIndex, 1);
+        state.images.splice(toIndex, 0, moved);
+
+        state.referenceIndex = remapIndexAfterMove(state.referenceIndex, fromIndex, toIndex);
+        state.activeOverlayIndex = remapIndexAfterMove(state.activeOverlayIndex, fromIndex, toIndex);
+
+        normalizeIndices();
+        createImageContainers();
+        updateStatusLine();
+        postImageOrderChanged();
+    }
+
     function updateZoomDisplay() {
         zoomLevelEl.textContent = `${Math.round(state.scale * 100)}%`;
     }
@@ -236,10 +291,37 @@
             removeBtn.disabled = state.images.length <= 2;
             removeBtn.addEventListener('click', (event) => {
                 event.stopPropagation();
+                if (isPairedModeActive()) {
+                    vscode.postMessage({ command: 'removeImageIndex', index });
+                    return;
+                }
+
                 removeImageAt(index);
             });
 
+            const moveUpBtn = document.createElement('button');
+            moveUpBtn.className = 'overlay-active-move';
+            moveUpBtn.textContent = '↑';
+            moveUpBtn.title = index === 0 ? 'Already first' : `Move ${label} up`;
+            moveUpBtn.disabled = index === 0;
+            moveUpBtn.addEventListener('click', (event) => {
+                event.stopPropagation();
+                moveImage(index, index - 1);
+            });
+
+            const moveDownBtn = document.createElement('button');
+            moveDownBtn.className = 'overlay-active-move';
+            moveDownBtn.textContent = '↓';
+            moveDownBtn.title = index === state.images.length - 1 ? 'Already last' : `Move ${label} down`;
+            moveDownBtn.disabled = index === state.images.length - 1;
+            moveDownBtn.addEventListener('click', (event) => {
+                event.stopPropagation();
+                moveImage(index, index + 1);
+            });
+
             row.appendChild(selectBtn);
+            row.appendChild(moveUpBtn);
+            row.appendChild(moveDownBtn);
             row.appendChild(removeBtn);
             referenceList.appendChild(row);
         }
@@ -495,6 +577,7 @@
         updateSelectorDropdowns();
         createImageContainers();
         updateStatusLine();
+        postImageOrderChanged();
     }
 
     function updateOverlayActiveDropdown() {
@@ -536,10 +619,37 @@
             removeBtn.disabled = state.images.length <= 2;
             removeBtn.addEventListener('click', (event) => {
                 event.stopPropagation();
+                if (isPairedModeActive()) {
+                    vscode.postMessage({ command: 'removeImageIndex', index });
+                    return;
+                }
+
                 removeImageAt(index);
             });
 
+            const moveUpBtn = document.createElement('button');
+            moveUpBtn.className = 'overlay-active-move';
+            moveUpBtn.textContent = '↑';
+            moveUpBtn.title = index === 0 ? 'Already first' : `Move ${label} up`;
+            moveUpBtn.disabled = index === 0;
+            moveUpBtn.addEventListener('click', (event) => {
+                event.stopPropagation();
+                moveImage(index, index - 1);
+            });
+
+            const moveDownBtn = document.createElement('button');
+            moveDownBtn.className = 'overlay-active-move';
+            moveDownBtn.textContent = '↓';
+            moveDownBtn.title = index === state.images.length - 1 ? 'Already last' : `Move ${label} down`;
+            moveDownBtn.disabled = index === state.images.length - 1;
+            moveDownBtn.addEventListener('click', (event) => {
+                event.stopPropagation();
+                moveImage(index, index + 1);
+            });
+
             row.appendChild(selectBtn);
+            row.appendChild(moveUpBtn);
+            row.appendChild(moveDownBtn);
             row.appendChild(removeBtn);
             overlayActiveList.appendChild(row);
         }
@@ -1076,8 +1186,8 @@
             state.images = new Array(message.count);
             state.expectedImageCount = message.count;
             state.loadedImageCount = 0;
-            state.referenceIndex = 0;
-            state.activeOverlayIndex = 0;
+            state.referenceIndex = Math.min(state.referenceIndex, Math.max(0, message.count - 1));
+            state.activeOverlayIndex = Math.min(state.activeOverlayIndex, Math.max(0, message.count - 1));
             createImageContainers();
             resetView();
             updateSelectorDropdowns();
@@ -1115,7 +1225,8 @@
             state.images[message.index] = {
                 data: message.data,
                 filename: message.filename,
-                fileSizeBytes: message.fileSizeBytes
+                fileSizeBytes: message.fileSizeBytes,
+                slotIndex: Number.isInteger(message.slotIndex) ? message.slotIndex : message.index
             };
             state.loadedImageCount++;
 

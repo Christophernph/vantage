@@ -20,16 +20,22 @@ export class ImageDiffPanel {
     private _pendingRenderMode: 'mosaic' | 'overlay';
     private readonly _onRenderModeChanged?: (mode: 'mosaic' | 'overlay') => void;
     private _onDroppedUris?: (uris: vscode.Uri[]) => void;
+    private _onImageOrderChanged?: (order: number[]) => void;
+    private _onRemoveImageIndex?: (index: number) => void;
     private _webviewReady = false;
     private _fileWatchers: vscode.Disposable[] = [];
     private _pendingPairStatus = '';
+    private _currentSlotOrder: number[] = [];
 
     public static createOrShow(
         extensionUri: vscode.Uri,
         imageUris?: vscode.Uri[],
         initialRenderMode: 'mosaic' | 'overlay' = 'mosaic',
         onRenderModeChanged?: (mode: 'mosaic' | 'overlay') => void,
-        onDroppedUris?: (uris: vscode.Uri[]) => void
+        onDroppedUris?: (uris: vscode.Uri[]) => void,
+        onImageOrderChanged?: (order: number[]) => void,
+        onRemoveImageIndex?: (index: number) => void,
+        slotOrder?: number[]
     ): void {
         const column = vscode.window.activeTextEditor
             ? vscode.window.activeTextEditor.viewColumn
@@ -39,8 +45,10 @@ export class ImageDiffPanel {
             ImageDiffPanel.currentPanel._panel.reveal(column);
             ImageDiffPanel.currentPanel._setRenderMode(initialRenderMode);
             ImageDiffPanel.currentPanel._onDroppedUris = onDroppedUris;
+            ImageDiffPanel.currentPanel._onImageOrderChanged = onImageOrderChanged;
+            ImageDiffPanel.currentPanel._onRemoveImageIndex = onRemoveImageIndex;
             if (imageUris && imageUris.length >= 2) {
-                ImageDiffPanel.currentPanel.loadImages(imageUris);
+                ImageDiffPanel.currentPanel.loadImages(imageUris, slotOrder);
             }
             return;
         }
@@ -64,11 +72,18 @@ export class ImageDiffPanel {
             }
         );
 
-        ImageDiffPanel.currentPanel = new ImageDiffPanel(panel, extensionUri, initialRenderMode, onRenderModeChanged, onDroppedUris);
+        ImageDiffPanel.currentPanel = new ImageDiffPanel(
+            panel,
+            extensionUri,
+            initialRenderMode,
+            onRenderModeChanged,
+            onDroppedUris,
+            onImageOrderChanged,
+            onRemoveImageIndex
+        );
 
         if (imageUris && imageUris.length >= 2) {
-            ImageDiffPanel.currentPanel._pendingImages = imageUris;
-            ImageDiffPanel.currentPanel._currentImages = [...imageUris];
+            ImageDiffPanel.currentPanel.loadImages(imageUris, slotOrder);
         }
     }
 
@@ -77,13 +92,17 @@ export class ImageDiffPanel {
         extensionUri: vscode.Uri,
         initialRenderMode: 'mosaic' | 'overlay',
         onRenderModeChanged?: (mode: 'mosaic' | 'overlay') => void,
-        onDroppedUris?: (uris: vscode.Uri[]) => void
+        onDroppedUris?: (uris: vscode.Uri[]) => void,
+        onImageOrderChanged?: (order: number[]) => void,
+        onRemoveImageIndex?: (index: number) => void
     ) {
         this._panel = panel;
         this._extensionUri = extensionUri;
         this._pendingRenderMode = initialRenderMode;
         this._onRenderModeChanged = onRenderModeChanged;
         this._onDroppedUris = onDroppedUris;
+        this._onImageOrderChanged = onImageOrderChanged;
+        this._onRemoveImageIndex = onRemoveImageIndex;
 
         this._update();
 
@@ -140,6 +159,24 @@ export class ImageDiffPanel {
                     return;
                 }
 
+                if (message.command === 'imageOrderChanged' && Array.isArray(message.order)) {
+                    const order = message.order
+                        .map((value: unknown) => typeof value === 'number' ? value : Number.NaN)
+                        .filter((value: number) => Number.isInteger(value));
+                    if (order.length > 0) {
+                        this._onImageOrderChanged?.(order);
+                    }
+                    return;
+                }
+
+                if (message.command === 'removeImageIndex') {
+                    const index = typeof message.index === 'number' ? message.index : Number.NaN;
+                    if (Number.isInteger(index)) {
+                        this._onRemoveImageIndex?.(index);
+                    }
+                    return;
+                }
+
                 if (message.command === 'droppedUris' && Array.isArray(message.uris)) {
                     const uris = message.uris
                         .map((raw: unknown) => typeof raw === 'string' ? raw.trim() : '')
@@ -167,8 +204,11 @@ export class ImageDiffPanel {
         );
     }
 
-    public loadImages(imageUris: vscode.Uri[]): void {
+    public loadImages(imageUris: vscode.Uri[], slotOrder?: number[]): void {
         this._currentImages = [...imageUris];
+        this._currentSlotOrder = Array.isArray(slotOrder) && slotOrder.length === imageUris.length
+            ? [...slotOrder]
+            : imageUris.map((_, index) => index);
         void this._loadImages(imageUris);
     }
 
@@ -185,6 +225,7 @@ export class ImageDiffPanel {
 
         const merged = Array.from(unique.values());
         this._currentImages = merged;
+        this._currentSlotOrder = merged.map((_, index) => index);
         void this._loadImages(merged);
     }
 
@@ -260,6 +301,9 @@ export class ImageDiffPanel {
         if (!this._webviewReady) {
             this._pendingImages = imageUris;
             this._currentImages = [...imageUris];
+            if (!this._currentSlotOrder || this._currentSlotOrder.length !== imageUris.length) {
+                this._currentSlotOrder = imageUris.map((_, index) => index);
+            }
             return;
         }
 
@@ -281,6 +325,7 @@ export class ImageDiffPanel {
                     data: `data:${mimeType};base64,${base64}`,
                     filename: filePath,
                     fileSizeBytes: imageData.byteLength,
+                    slotIndex: this._currentSlotOrder[i] ?? i,
                     index: i
                 });
             }
