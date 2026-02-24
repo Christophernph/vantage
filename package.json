@@ -15,6 +15,10 @@
     "activationEvents": [
         "onCommand:vantage.start",
         "onCommand:vantage.compareImages",
+        "onCommand:vantage.startPairedComparison",
+        "onCommand:vantage.sidebarStartPairedComparison",
+        "onCommand:vantage.pairedNext",
+        "onCommand:vantage.pairedPrevious",
         "onCommand:vantage.sidebarSetPath",
         "onCommand:vantage.sidebarSetFilterPattern",
         "onCommand:vantage.sidebarClearFilterPattern",
@@ -35,6 +39,23 @@
             {
                 "command": "vantage.compareImages",
                 "title": "Vantage: Compare Images"
+            },
+            {
+                "command": "vantage.startPairedComparison",
+                "title": "Vantage: Start Paired Comparison"
+            },
+            {
+                "command": "vantage.sidebarStartPairedComparison",
+                "title": "Vantage: Start Paired Comparison (Selected Folders)",
+                "icon": "$(combine)"
+            },
+            {
+                "command": "vantage.pairedNext",
+                "title": "Vantage: Next Matched Pair"
+            },
+            {
+                "command": "vantage.pairedPrevious",
+                "title": "Vantage: Previous Matched Pair"
             },
             {
                 "command": "vantage.sidebarSetPath",
@@ -133,24 +154,29 @@
                     "group": "navigation@1"
                 },
                 {
-                    "command": "vantage.sidebarOpenInEditor",
+                    "command": "vantage.sidebarStartPairedComparison",
                     "when": "view == vantage-sidebar",
                     "group": "navigation@2"
                 },
                 {
-                    "command": "vantage.sidebarRefresh",
+                    "command": "vantage.sidebarOpenInEditor",
                     "when": "view == vantage-sidebar",
                     "group": "navigation@3"
                 },
                 {
-                    "command": "vantage.sidebarSetFilterPattern",
+                    "command": "vantage.sidebarRefresh",
                     "when": "view == vantage-sidebar",
                     "group": "navigation@4"
                 },
                 {
+                    "command": "vantage.sidebarSetFilterPattern",
+                    "when": "view == vantage-sidebar",
+                    "group": "navigation@5"
+                },
+                {
                     "command": "vantage.sidebarClearFilterPattern",
                     "when": "view == vantage-sidebar && vantage.sidebarFilterActive",
-                    "group": "navigation@5"
+                    "group": "navigation@6"
                 }
             ],
             "view/item/context": [
@@ -158,6 +184,11 @@
                     "command": "vantage.sidebarOpenInEditor",
                     "when": "view == vantage-sidebar",
                     "group": "1_compare@1"
+                },
+                {
+                    "command": "vantage.sidebarStartPairedComparison",
+                    "when": "view == vantage-sidebar && viewItem == folder",
+                    "group": "1_compare@2"
                 },
                 {
                     "command": "vantage.sidebarRevealInExplorer",
@@ -248,6 +279,26 @@
             {
                 "command": "vantage.cycleImagePrevious",
                 "key": "shift+alt+tab",
+                "when": "webviewFocus"
+            },
+            {
+                "command": "vantage.pairedNext",
+                "key": "ctrl+alt+right",
+                "when": "webviewFocus"
+            },
+            {
+                "command": "vantage.pairedPrevious",
+                "key": "ctrl+alt+left",
+                "when": "webviewFocus"
+            },
+            {
+                "command": "vantage.pairedNext",
+                "key": "ctrl+shift+pagedown",
+                "when": "webviewFocus"
+            },
+            {
+                "command": "vantage.pairedPrevious",
+                "key": "ctrl+shift+pageup",
                 "when": "webviewFocus"
             }
         ]

@@ -43,7 +43,8 @@
         renderMode: 'mosaic',
         imageContainers: [],
         expectedImageCount: 0,
-        loadedImageCount: 0
+        loadedImageCount: 0,
+        pairStatus: ''
     };
 
     const detachedControls = {
@@ -53,6 +54,25 @@
 
     function getFilename(path) {
         return path.split(/[/\\]/).pop();
+    }
+
+    function getParentAndFilename(pathValue) {
+        if (!pathValue || typeof pathValue !== 'string') {
+            return '';
+        }
+
+        const parts = pathValue.split(/[/\\]/).filter(part => part.length > 0);
+        if (parts.length === 0) {
+            return '';
+        }
+
+        const filename = parts[parts.length - 1];
+        const parent = parts.length > 1 ? parts[parts.length - 2] : '';
+        if (!parent) {
+            return filename;
+        }
+
+        return `.../${parent}/${filename}`;
     }
 
     function formatFileSize(bytes) {
@@ -135,7 +155,17 @@
         if (!statusLine) {
             return;
         }
-        statusLine.textContent = '';
+
+        const total = state.images.length;
+        const activeImage = total > 0 ? state.images[state.activeOverlayIndex] : undefined;
+        const activeLabel = activeImage?.filename ? getParentAndFilename(activeImage.filename) : '';
+
+        if (state.pairStatus && activeLabel) {
+            statusLine.textContent = `${state.pairStatus} · ${activeLabel}`;
+            return;
+        }
+
+        statusLine.textContent = state.pairStatus || activeLabel || '';
     }
 
     function renderHelpContent() {
@@ -148,6 +178,9 @@
                 <li><strong>Alt+1..9</strong>: Jump to image 1-9</li>
                 <li><strong>Alt+Tab</strong>: Next image</li>
                 <li><strong>Shift+Alt+Tab</strong>: Previous image</li>
+                <li><strong>Ctrl+Alt+Right</strong>: Next matched pair</li>
+                <li><strong>Ctrl+Alt+Left</strong>: Previous matched pair</li>
+                <li><strong>Ctrl+Shift+PgDn/PgUp</strong>: Next/previous matched pair (fallback)</li>
                 <li><strong>Reference dropdown</strong>: Set/remove images in Mosaic</li>
                 <li><strong>Active dropdown</strong>: Set/remove active images in Overlay</li>
                 <li><strong>Fit</strong>: Reset to fit all images</li>
@@ -342,6 +375,28 @@
 
     function handleGeneralShortcuts(event) {
         if (isInteractiveControlTarget(event.target)) {
+            return;
+        }
+
+        const wantsPairedNext =
+            (event.ctrlKey && event.altKey && !event.metaKey && !event.shiftKey && event.key === 'ArrowRight')
+            || (event.ctrlKey && event.shiftKey && !event.metaKey && !event.altKey && event.key === 'PageDown');
+        if (wantsPairedNext) {
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+            vscode.postMessage({ command: 'pairedNext' });
+            return;
+        }
+
+        const wantsPairedPrevious =
+            (event.ctrlKey && event.altKey && !event.metaKey && !event.shiftKey && event.key === 'ArrowLeft')
+            || (event.ctrlKey && event.shiftKey && !event.metaKey && !event.altKey && event.key === 'PageUp');
+        if (wantsPairedPrevious) {
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+            vscode.postMessage({ command: 'pairedPrevious' });
             return;
         }
 
@@ -1032,6 +1087,12 @@
 
         if (message.command === 'setRenderMode') {
             setRenderMode(message.mode);
+            return;
+        }
+
+        if (message.command === 'pairStatus') {
+            state.pairStatus = typeof message.text === 'string' ? message.text : '';
+            updateStatusLine();
             return;
         }
 

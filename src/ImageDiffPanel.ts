@@ -22,6 +22,7 @@ export class ImageDiffPanel {
     private _onDroppedUris?: (uris: vscode.Uri[]) => void;
     private _webviewReady = false;
     private _fileWatchers: vscode.Disposable[] = [];
+    private _pendingPairStatus = '';
 
     public static createOrShow(
         extensionUri: vscode.Uri,
@@ -93,6 +94,7 @@ export class ImageDiffPanel {
                 if (message.command === 'webviewReady') {
                     this._webviewReady = true;
                     this._setRenderMode(this._pendingRenderMode);
+                    this._postPairStatus(this._pendingPairStatus);
                     if (this._pendingImages) {
                         await this._loadImages(this._pendingImages);
                         this._pendingImages = undefined;
@@ -126,6 +128,16 @@ export class ImageDiffPanel {
                         console.error('Failed to load image:', e);
                         vscode.window.showErrorMessage(`Failed to load image: ${e}`);
                     }
+                }
+
+                if (message.command === 'pairedNext') {
+                    void vscode.commands.executeCommand('vantage.pairedNext');
+                    return;
+                }
+
+                if (message.command === 'pairedPrevious') {
+                    void vscode.commands.executeCommand('vantage.pairedPrevious');
+                    return;
                 }
 
                 if (message.command === 'droppedUris' && Array.isArray(message.uris)) {
@@ -178,6 +190,22 @@ export class ImageDiffPanel {
 
     public getCurrentImageUris(): vscode.Uri[] {
         return [...this._currentImages];
+    }
+
+    public setPairStatus(status: string): void {
+        this._pendingPairStatus = status;
+        this._postPairStatus(status);
+    }
+
+    private _postPairStatus(status: string): void {
+        if (!this._webviewReady) {
+            return;
+        }
+
+        this._panel.webview.postMessage({
+            command: 'pairStatus',
+            text: status
+        });
     }
 
     private _setRenderMode(mode: 'mosaic' | 'overlay'): void {

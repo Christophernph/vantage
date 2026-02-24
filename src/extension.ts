@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { ImageDiffPanel } from './ImageDiffPanel';
 import { SidebarDragAndDropController, SidebarNode, SidebarProvider } from './SidebarProvider';
 
@@ -10,6 +11,24 @@ const SIDEBAR_FILTER_ACTIVE_CONTEXT_KEY = 'vantage.sidebarFilterActive';
 const LARGE_IMAGE_CONFIRM_THRESHOLD = 9;
 
 type RenderMode = 'mosaic' | 'overlay';
+
+interface StrictPairGroup {
+    key: string;
+    displayName: string;
+    imageUris: vscode.Uri[];
+}
+
+interface StrictPairSession {
+    folders: vscode.Uri[];
+    groups: StrictPairGroup[];
+    index: number;
+}
+
+interface FolderImageLookup {
+    folder: vscode.Uri;
+    imagesByKey: Map<string, vscode.Uri>;
+    duplicateKeys: Set<string>;
+}
 
 function isImageFile(uri: vscode.Uri): boolean {
     const filePath = (uri.fsPath || uri.path).toLowerCase();
@@ -46,6 +65,111 @@ async function confirmOpenLargeImageSet(imageCount: number): Promise<boolean> {
     return selected === 'Open Images';
 }
 
+function getFilenameFromUri(uri: vscode.Uri): string {
+    if (uri.scheme === 'file') {
+        return path.basename(uri.fsPath);
+    }
+
+    return path.posix.basename(uri.path);
+}
+
+function getParentAndFilenameLabel(uri: vscode.Uri): string {
+    const normalized = uri.scheme === 'file'
+        ? uri.fsPath.replace(/\\/g, '/')
+        : uri.path;
+    const parts = normalized.split('/').filter(part => part.length > 0);
+    const filename = getFilenameFromUri(uri);
+    const parent = parts.length > 1 ? parts[parts.length - 2] : '';
+
+    if (!parent) {
+        return filename;
+    }
+
+    return `.../${parent}/${filename}`;
+}
+
+function toMatchKey(name: string): string {
+    const dotIndex = name.lastIndexOf('.');
+    const stem = dotIndex > 0 ? name.slice(0, dotIndex) : name;
+    return stem.toLowerCase();
+}
+
+function formatPairStatus(session: StrictPairSession): string {
+    if (session.groups.length === 0) {
+        return '';
+    }
+
+    return `Pair ${session.index + 1}/${session.groups.length}`;
+}
+
+async function buildFolderImageLookup(folder: vscode.Uri): Promise<FolderImageLookup> {
+    const images = await collectImagesRecursively(folder);
+    const imagesByKey = new Map<string, vscode.Uri>();
+    const duplicateKeys = new Set<string>();
+
+    images.sort((a, b) => a.fsPath.localeCompare(b.fsPath));
+
+    for (const image of images) {
+        const filename = getFilenameFromUri(image);
+        const key = toMatchKey(filename);
+        if (!key) {
+            continue;
+        }
+
+        if (imagesByKey.has(key)) {
+            duplicateKeys.add(key);
+            continue;
+        }
+
+        imagesByKey.set(key, image);
+    }
+
+    return {
+        folder,
+        imagesByKey,
+        duplicateKeys
+    };
+}
+
+async function buildStrictPairGroups(folders: vscode.Uri[]): Promise<{ groups: StrictPairGroup[]; duplicateKeyCount: number }> {
+    const lookups = await Promise.all(folders.map(folder => buildFolderImageLookup(folder)));
+    if (lookups.length === 0) {
+        return {
+            groups: [],
+            duplicateKeyCount: 0
+        };
+    }
+
+    const duplicateKeyUnion = new Set<string>();
+    lookups.forEach(lookup => {
+        lookup.duplicateKeys.forEach(key => duplicateKeyUnion.add(key));
+    });
+
+    let commonKeys = new Set<string>(lookups[0].imagesByKey.keys());
+    for (let i = 1; i < lookups.length; i++) {
+        const keys = lookups[i].imagesByKey;
+        commonKeys = new Set(Array.from(commonKeys).filter(key => keys.has(key)));
+    }
+
+    const sortedKeys = Array.from(commonKeys).sort((a, b) => a.localeCompare(b));
+    const groups: StrictPairGroup[] = sortedKeys.map(key => {
+        const imageUris = lookups
+            .map(lookup => lookup.imagesByKey.get(key))
+            .filter((uri): uri is vscode.Uri => uri !== undefined);
+
+        return {
+            key,
+            displayName: getParentAndFilenameLabel(imageUris[0]),
+            imageUris
+        };
+    });
+
+    return {
+        groups,
+        duplicateKeyCount: duplicateKeyUnion.size
+    };
+}
+
 export function activate(context: vscode.ExtensionContext): void {
     const initialSidebarRoot = getInitialSidebarRoot(context);
     const initialFilterPattern = context.workspaceState.get<string>(SIDEBAR_FILTER_KEY) ?? '';
@@ -76,12 +200,95 @@ export function activate(context: vscode.ExtensionContext): void {
         void context.workspaceState.update(RENDER_MODE_KEY, mode);
     };
 
-    const openPanel = async (imageUris?: vscode.Uri[]): Promise<void> => {
+    let activeStrictPairSession: StrictPairSession | undefined;
+
+    const clearStrictPairSession = (): void => {
+        activeStrictPairSession = undefined;
+        ImageDiffPanel.currentPanel?.setPairStatus('');
+    };
+
+    const startStrictPairComparison = async (folders: vscode.Uri[]): Promise<void> => {
+        if (folders.length < 2) {
+            vscode.window.showErrorMessage('Select at least 2 folders to start paired comparison.');
+            return;
+        }
+
+        const uniqueFolders = new Map<string, vscode.Uri>();
+        folders.forEach(folder => {
+            uniqueFolders.set(folder.toString(), folder);
+        });
+
+        if (uniqueFolders.size < 2) {
+            vscode.window.showErrorMessage('Select at least 2 different folders to start paired comparison.');
+            return;
+        }
+
+        const selectedFolders = Array.from(uniqueFolders.values());
+        const { groups, duplicateKeyCount } = await buildStrictPairGroups(selectedFolders);
+        if (groups.length === 0) {
+            vscode.window.showWarningMessage('No matching image filenames were found across all selected folders.');
+            return;
+        }
+
+        activeStrictPairSession = {
+            folders: selectedFolders,
+            groups,
+            index: 0
+        };
+
+        if (duplicateKeyCount > 0) {
+            vscode.window.showWarningMessage(
+                `Skipped ${duplicateKeyCount} duplicated filename key(s) found more than once in at least one folder.`
+            );
+        }
+
+        await openPanel(groups[0].imageUris, {
+            pairStatus: formatPairStatus(activeStrictPairSession),
+            preserveStrictPairSession: true
+        });
+    };
+
+    const loadStrictPairAtIndex = async (targetIndex: number): Promise<void> => {
+        if (!activeStrictPairSession || activeStrictPairSession.groups.length === 0) {
+            vscode.window.showWarningMessage('No paired comparison session is active. Start one from folders first.');
+            return;
+        }
+
+        if (targetIndex < 0 || targetIndex >= activeStrictPairSession.groups.length) {
+            return;
+        }
+
+        activeStrictPairSession.index = targetIndex;
+        const group = activeStrictPairSession.groups[targetIndex];
+
+        if (ImageDiffPanel.currentPanel) {
+            ImageDiffPanel.currentPanel.loadImages(group.imageUris);
+            ImageDiffPanel.currentPanel.setPairStatus(formatPairStatus(activeStrictPairSession));
+            return;
+        }
+
+        await openPanel(group.imageUris, {
+            pairStatus: formatPairStatus(activeStrictPairSession),
+            preserveStrictPairSession: true
+        });
+    };
+
+    const openPanel = async (
+        imageUris?: vscode.Uri[],
+        options?: {
+            pairStatus?: string;
+            preserveStrictPairSession?: boolean;
+        }
+    ): Promise<void> => {
         if (imageUris && imageUris.length > 0) {
             const shouldOpen = await confirmOpenLargeImageSet(imageUris.length);
             if (!shouldOpen) {
                 return;
             }
+        }
+
+        if (!options?.preserveStrictPairSession) {
+            activeStrictPairSession = undefined;
         }
 
         ImageDiffPanel.createOrShow(
@@ -110,13 +317,17 @@ export function activate(context: vscode.ExtensionContext): void {
                     return;
                 }
 
+                clearStrictPairSession();
                 ImageDiffPanel.currentPanel?.appendImages(images);
             }
         );
+
+        ImageDiffPanel.currentPanel?.setPairStatus(options?.pairStatus ?? '');
     };
 
     context.subscriptions.push(
         vscode.commands.registerCommand('vantage.start', () => {
+            clearStrictPairSession();
             void openPanel();
         })
     );
@@ -135,7 +346,48 @@ export function activate(context: vscode.ExtensionContext): void {
                 return;
             }
 
+            clearStrictPairSession();
             void openPanel(uris);
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('vantage.startPairedComparison', async () => {
+            const selectedFolders = await vscode.window.showOpenDialog({
+                title: 'Vantage: Select Folders for Paired Comparison',
+                openLabel: 'Start Paired Comparison',
+                canSelectFiles: false,
+                canSelectFolders: true,
+                canSelectMany: true,
+                defaultUri: sidebarProvider.rootUri ?? vscode.workspace.workspaceFolders?.[0]?.uri
+            });
+
+            if (!selectedFolders || selectedFolders.length === 0) {
+                return;
+            }
+
+            await startStrictPairComparison(selectedFolders);
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('vantage.sidebarStartPairedComparison', async (item?: SidebarNode) => {
+            const baseSelection = sidebarTreeView.selection.length > 0
+                ? sidebarTreeView.selection
+                : item
+                    ? [item]
+                    : [];
+
+            const folderUris = baseSelection
+                .filter(node => node.nodeType === 'folder')
+                .map(node => node.uri);
+
+            if (folderUris.length < 2) {
+                vscode.window.showWarningMessage('Select at least 2 folders in the Vantage sidebar to start paired comparison.');
+                return;
+            }
+
+            await startStrictPairComparison(folderUris);
         })
     );
 
@@ -239,7 +491,42 @@ export function activate(context: vscode.ExtensionContext): void {
                 return;
             }
 
+            clearStrictPairSession();
             void openPanel(images);
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('vantage.pairedNext', () => {
+            if (!activeStrictPairSession) {
+                vscode.window.showWarningMessage('No paired comparison session is active.');
+                return;
+            }
+
+            const nextIndex = activeStrictPairSession.index + 1;
+            if (nextIndex >= activeStrictPairSession.groups.length) {
+                vscode.window.showInformationMessage('Already at the last matched pair.');
+                return;
+            }
+
+            void loadStrictPairAtIndex(nextIndex);
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('vantage.pairedPrevious', () => {
+            if (!activeStrictPairSession) {
+                vscode.window.showWarningMessage('No paired comparison session is active.');
+                return;
+            }
+
+            const prevIndex = activeStrictPairSession.index - 1;
+            if (prevIndex < 0) {
+                vscode.window.showInformationMessage('Already at the first matched pair.');
+                return;
+            }
+
+            void loadStrictPairAtIndex(prevIndex);
         })
     );
 
