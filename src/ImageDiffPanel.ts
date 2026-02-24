@@ -72,6 +72,11 @@ export class ImageDiffPanel {
             }
         );
 
+        panel.iconPath = {
+            light: vscode.Uri.joinPath(extensionUri, 'media', 'icon.png'),
+            dark: vscode.Uri.joinPath(extensionUri, 'media', 'icon.png')
+        };
+
         ImageDiffPanel.currentPanel = new ImageDiffPanel(
             panel,
             extensionUri,
