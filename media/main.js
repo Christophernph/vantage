@@ -151,6 +151,222 @@
         return Boolean(state.pairStatus);
     }
 
+    let dragSourceIndex = -1;
+    let dragListEl = null;
+    let dragLastClientY = null;
+    let dragScrollVelocity = 0;
+    let dragScrollRafId = null;
+
+    const DRAG_SCROLL_EDGE_THRESHOLD = 24;
+    const DRAG_SCROLL_MAX_SPEED = 14;
+
+    function clearDragIndicators() {
+        const rows = document.querySelectorAll('.overlay-active-item');
+        rows.forEach(row => {
+            row.classList.remove('drop-before', 'drop-after');
+        });
+    }
+
+    function stopReorderDragSession() {
+        dragSourceIndex = -1;
+        dragListEl = null;
+        dragLastClientY = null;
+        dragScrollVelocity = 0;
+
+        if (dragScrollRafId !== null) {
+            cancelAnimationFrame(dragScrollRafId);
+            dragScrollRafId = null;
+        }
+
+        clearDragIndicators();
+
+        const draggingRows = document.querySelectorAll('.overlay-active-item.is-dragging');
+        draggingRows.forEach(row => {
+            row.classList.remove('is-dragging');
+        });
+
+        const lists = document.querySelectorAll('.overlay-active-list');
+        lists.forEach(list => {
+            list.classList.remove('reorder-drag-active');
+        });
+    }
+
+    function startReorderDragSession(sourceIndex, listEl, sourceRow) {
+        stopReorderDragSession();
+        dragSourceIndex = sourceIndex;
+        dragListEl = listEl;
+        listEl?.classList.add('reorder-drag-active');
+        sourceRow?.classList.add('is-dragging');
+    }
+
+    function getDropInsertionIndex(listEl, clientY) {
+        const rows = Array.from(listEl.querySelectorAll('.overlay-active-item'));
+        if (rows.length === 0) {
+            return -1;
+        }
+
+        for (let index = 0; index < rows.length; index++) {
+            const row = rows[index];
+            const rect = row.getBoundingClientRect();
+            if (clientY < rect.top + rect.height / 2) {
+                return index;
+            }
+        }
+
+        return rows.length;
+    }
+
+    function updateDropIndicatorFromPointer(listEl, clientY) {
+        clearDragIndicators();
+
+        const rows = Array.from(listEl.querySelectorAll('.overlay-active-item'));
+        if (rows.length === 0) {
+            return;
+        }
+
+        const insertionIndex = getDropInsertionIndex(listEl, clientY);
+        if (insertionIndex <= 0) {
+            rows[0].classList.add('drop-before');
+            return;
+        }
+
+        if (insertionIndex >= rows.length) {
+            rows[rows.length - 1].classList.add('drop-after');
+            return;
+        }
+
+        rows[insertionIndex].classList.add('drop-before');
+    }
+
+    function updateDragScrollVelocity(listEl, clientY) {
+        const rect = listEl.getBoundingClientRect();
+        const maxScrollTop = listEl.scrollHeight - listEl.clientHeight;
+        if (maxScrollTop <= 0) {
+            dragScrollVelocity = 0;
+            return;
+        }
+
+        if (clientY < rect.top + DRAG_SCROLL_EDGE_THRESHOLD && listEl.scrollTop > 0) {
+            const ratio = (rect.top + DRAG_SCROLL_EDGE_THRESHOLD - clientY) / DRAG_SCROLL_EDGE_THRESHOLD;
+            dragScrollVelocity = -Math.max(1, Math.round(DRAG_SCROLL_MAX_SPEED * Math.min(1, ratio)));
+            return;
+        }
+
+        if (clientY > rect.bottom - DRAG_SCROLL_EDGE_THRESHOLD && listEl.scrollTop < maxScrollTop) {
+            const ratio = (clientY - (rect.bottom - DRAG_SCROLL_EDGE_THRESHOLD)) / DRAG_SCROLL_EDGE_THRESHOLD;
+            dragScrollVelocity = Math.max(1, Math.round(DRAG_SCROLL_MAX_SPEED * Math.min(1, ratio)));
+            return;
+        }
+
+        dragScrollVelocity = 0;
+    }
+
+    function tickDragAutoScroll() {
+        dragScrollRafId = null;
+
+        if (dragSourceIndex < 0 || !dragListEl) {
+            return;
+        }
+
+        if (dragScrollVelocity === 0) {
+            return;
+        }
+
+        const maxScrollTop = dragListEl.scrollHeight - dragListEl.clientHeight;
+        const nextScrollTop = Math.min(
+            maxScrollTop,
+            Math.max(0, dragListEl.scrollTop + dragScrollVelocity)
+        );
+
+        if (nextScrollTop !== dragListEl.scrollTop) {
+            dragListEl.scrollTop = nextScrollTop;
+            if (typeof dragLastClientY === 'number') {
+                updateDropIndicatorFromPointer(dragListEl, dragLastClientY);
+            }
+        }
+
+        if (dragSourceIndex >= 0 && dragListEl && dragScrollVelocity !== 0) {
+            dragScrollRafId = requestAnimationFrame(tickDragAutoScroll);
+        }
+    }
+
+    function ensureDragAutoScrollRunning() {
+        if (dragScrollRafId === null && dragScrollVelocity !== 0) {
+            dragScrollRafId = requestAnimationFrame(tickDragAutoScroll);
+        }
+    }
+
+    function handleListDragOver(listEl, event) {
+        if (dragSourceIndex < 0) {
+            return;
+        }
+
+        event.preventDefault();
+        dragLastClientY = event.clientY;
+        dragListEl = listEl;
+        listEl.classList.add('reorder-drag-active');
+        updateDropIndicatorFromPointer(listEl, event.clientY);
+        updateDragScrollVelocity(listEl, event.clientY);
+        ensureDragAutoScrollRunning();
+    }
+
+    function handleListDrop(listEl, event) {
+        if (dragSourceIndex < 0) {
+            return;
+        }
+
+        event.preventDefault();
+        const insertionIndex = getDropInsertionIndex(listEl, event.clientY);
+        if (insertionIndex < 0) {
+            stopReorderDragSession();
+            return;
+        }
+
+        let targetIndex = insertionIndex;
+        if (targetIndex > dragSourceIndex) {
+            targetIndex--;
+        }
+
+        targetIndex = Math.max(0, Math.min(state.images.length - 1, targetIndex));
+        moveImage(dragSourceIndex, targetIndex);
+        stopReorderDragSession();
+    }
+
+    function configureDragList(listEl) {
+        if (!listEl || listEl.dataset.dragConfigured === 'true') {
+            return;
+        }
+
+        listEl.dataset.dragConfigured = 'true';
+
+        listEl.addEventListener('dragover', (event) => {
+            handleListDragOver(listEl, event);
+        });
+
+        listEl.addEventListener('drop', (event) => {
+            handleListDrop(listEl, event);
+        });
+
+        listEl.addEventListener('dragleave', (event) => {
+            if (dragSourceIndex < 0) {
+                return;
+            }
+
+            const related = event.relatedTarget;
+            if (related instanceof Node && listEl.contains(related)) {
+                return;
+            }
+
+            dragScrollVelocity = 0;
+            clearDragIndicators();
+            listEl.classList.add('reorder-drag-active');
+        });
+    }
+
+    function attachDragReorderEvents(row, index) {
+        row.dataset.index = index.toString();
+    }
+
     function postImageOrderChanged() {
         const order = state.images.map((image, index) => {
             if (Number.isInteger(image?.slotIndex)) {
@@ -257,6 +473,8 @@
             return;
         }
 
+        configureDragList(referenceList);
+
         const total = state.images.length;
         referenceSummary.textContent = total > 0
             ? `Reference: ${state.referenceIndex + 1}/${total}`
@@ -268,6 +486,7 @@
             const img = state.images[index];
             const row = document.createElement('div');
             row.className = 'overlay-active-item';
+            attachDragReorderEvents(row, index);
 
             const selectBtn = document.createElement('button');
             selectBtn.className = 'overlay-active-select';
@@ -299,29 +518,28 @@
                 removeImageAt(index);
             });
 
-            const moveUpBtn = document.createElement('button');
-            moveUpBtn.className = 'overlay-active-move';
-            moveUpBtn.textContent = '↑';
-            moveUpBtn.title = index === 0 ? 'Already first' : `Move ${label} up`;
-            moveUpBtn.disabled = index === 0;
-            moveUpBtn.addEventListener('click', (event) => {
+            const grabBtn = document.createElement('button');
+            grabBtn.className = 'overlay-active-grab';
+            grabBtn.textContent = '☰';
+            grabBtn.title = `Drag to reorder ${label}`;
+            grabBtn.draggable = true;
+            grabBtn.addEventListener('click', (event) => {
+                event.preventDefault();
                 event.stopPropagation();
-                moveImage(index, index - 1);
             });
-
-            const moveDownBtn = document.createElement('button');
-            moveDownBtn.className = 'overlay-active-move';
-            moveDownBtn.textContent = '↓';
-            moveDownBtn.title = index === state.images.length - 1 ? 'Already last' : `Move ${label} down`;
-            moveDownBtn.disabled = index === state.images.length - 1;
-            moveDownBtn.addEventListener('click', (event) => {
-                event.stopPropagation();
-                moveImage(index, index + 1);
+            grabBtn.addEventListener('dragstart', (event) => {
+                startReorderDragSession(index, referenceList, row);
+                if (event.dataTransfer) {
+                    event.dataTransfer.effectAllowed = 'move';
+                    event.dataTransfer.setData('text/plain', index.toString());
+                }
+            });
+            grabBtn.addEventListener('dragend', () => {
+                stopReorderDragSession();
             });
 
             row.appendChild(selectBtn);
-            row.appendChild(moveUpBtn);
-            row.appendChild(moveDownBtn);
+            row.appendChild(grabBtn);
             row.appendChild(removeBtn);
             referenceList.appendChild(row);
         }
@@ -585,6 +803,8 @@
             return;
         }
 
+        configureDragList(overlayActiveList);
+
         const total = state.images.length;
         overlayActiveSummary.textContent = total > 0
             ? `Active: ${state.activeOverlayIndex + 1}/${total}`
@@ -596,6 +816,7 @@
             const img = state.images[index];
             const row = document.createElement('div');
             row.className = 'overlay-active-item';
+            attachDragReorderEvents(row, index);
 
             const selectBtn = document.createElement('button');
             selectBtn.className = 'overlay-active-select';
@@ -627,29 +848,28 @@
                 removeImageAt(index);
             });
 
-            const moveUpBtn = document.createElement('button');
-            moveUpBtn.className = 'overlay-active-move';
-            moveUpBtn.textContent = '↑';
-            moveUpBtn.title = index === 0 ? 'Already first' : `Move ${label} up`;
-            moveUpBtn.disabled = index === 0;
-            moveUpBtn.addEventListener('click', (event) => {
+            const grabBtn = document.createElement('button');
+            grabBtn.className = 'overlay-active-grab';
+            grabBtn.textContent = '☰';
+            grabBtn.title = `Drag to reorder ${label}`;
+            grabBtn.draggable = true;
+            grabBtn.addEventListener('click', (event) => {
+                event.preventDefault();
                 event.stopPropagation();
-                moveImage(index, index - 1);
             });
-
-            const moveDownBtn = document.createElement('button');
-            moveDownBtn.className = 'overlay-active-move';
-            moveDownBtn.textContent = '↓';
-            moveDownBtn.title = index === state.images.length - 1 ? 'Already last' : `Move ${label} down`;
-            moveDownBtn.disabled = index === state.images.length - 1;
-            moveDownBtn.addEventListener('click', (event) => {
-                event.stopPropagation();
-                moveImage(index, index + 1);
+            grabBtn.addEventListener('dragstart', (event) => {
+                startReorderDragSession(index, overlayActiveList, row);
+                if (event.dataTransfer) {
+                    event.dataTransfer.effectAllowed = 'move';
+                    event.dataTransfer.setData('text/plain', index.toString());
+                }
+            });
+            grabBtn.addEventListener('dragend', () => {
+                stopReorderDragSession();
             });
 
             row.appendChild(selectBtn);
-            row.appendChild(moveUpBtn);
-            row.appendChild(moveDownBtn);
+            row.appendChild(grabBtn);
             row.appendChild(removeBtn);
             overlayActiveList.appendChild(row);
         }

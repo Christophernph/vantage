@@ -222,6 +222,10 @@ body:not(.overlay-mode) .overlay-active-control {
     padding: 8px;
 }
 
+.overlay-active-list.reorder-drag-active {
+    background-color: color-mix(in srgb, var(--vscode-editorWidget-background) 88%, var(--vscode-focusBorder));
+}
+
 .overlay-active-item {
     display: flex;
     align-items: center;
@@ -230,7 +234,7 @@ body:not(.overlay-mode) .overlay-active-control {
 
 .overlay-active-select,
 .overlay-active-remove,
-.overlay-active-move {
+.overlay-active-grab {
     border: 1px solid var(--vscode-panel-border);
     background-color: var(--vscode-button-secondaryBackground);
     color: var(--vscode-button-secondaryForeground);
@@ -258,12 +262,13 @@ body:not(.overlay-mode) .overlay-active-control {
     line-height: 1;
 }
 
-.overlay-active-move {
+.overlay-active-grab {
     width: 24px;
     height: 24px;
     padding: 0;
-    font-size: 12px;
+    font-size: 13px;
     line-height: 1;
+    cursor: grab;
 }
 
 .overlay-active-remove:disabled {
@@ -271,9 +276,35 @@ body:not(.overlay-mode) .overlay-active-control {
     opacity: 0.45;
 }
 
-.overlay-active-move:disabled {
+.overlay-active-grab:disabled {
     cursor: not-allowed;
     opacity: 0.45;
+}
+
+.overlay-active-item {
+    position: relative;
+}
+
+.overlay-active-item.is-dragging {
+    opacity: 0.5;
+}
+
+.overlay-active-item.drop-before::before,
+.overlay-active-item.drop-after::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--vscode-focusBorder);
+}
+
+.overlay-active-item.drop-before::before {
+    top: -3px;
+}
+
+.overlay-active-item.drop-after::after {
+    bottom: -3px;
 }
 
 #overlayBtn {
