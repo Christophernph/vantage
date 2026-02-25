@@ -44,6 +44,14 @@ Zoom to any point in any image — all viewports stay perfectly aligned. Drag to
 
 Browse image-only directory trees from the Activity Bar. Set a root path, filter with wildcard patterns (`*.png`, `*_mask.*`), multi-select files and folders, and open everything in the compare panel in one click.
 
+### Paired Folder Comparison
+
+Start a strict paired workflow across 2+ folders and step through matched filenames (stem-based matching, extension-agnostic). Navigate pairs with keyboard shortcuts while keeping all normal comparison tools.
+
+### Reorderable Image Lists
+
+Reorder images from the **Reference** / **Active** dropdown using drag-and-drop handles. In paired mode, reordering persists while stepping to next/previous pairs.
+
 ### Drag & Drop
 
 Drag images or entire folders from the VS Code Explorer directly into the compare panel to add them to the current session.
@@ -68,23 +76,26 @@ Run **Vantage: Start** (`Ctrl+Shift+P` / `Cmd+Shift+P`) to open an empty panel, 
 1. Open the **Vantage** view in the Activity Bar
 2. Set a folder path and optionally filter by pattern
 3. Select images → Click **Open in Editor**
+4. For paired mode, select 2+ folders → **Start Paired Comparison (Selected Folders)**
 
 ## 🎮 Controls
 
-| Input                    | Action                                          |
-| ------------------------ | ----------------------------------------------- |
-| **Scroll wheel**         | Zoom in/out centered on image (synced)          |
-| **Click + drag**         | Pan all images                                  |
-| **Mode selector**        | Toggle Mosaic ↔ Overlay                         |
-| `Alt+1` – `Alt+9`        | Jump to image 1–9                               |
-| `Alt+Tab`                | Next image                                      |
-| `Shift+Alt+Tab`          | Previous image                                  |
-| **Fit** button           | Reset zoom to fit view                          |
-| **1:1** button           | Set zoom to 100%                                |
-| **?** button             | Show shortcut help overlay                      |
-| **Differences** checkbox | Toggle pixel diff visualization                 |
-| **Reference** dropdown   | Set reference (Mosaic) / active image (Overlay) |
-| **Hold overlay button**  | Flash reference image in all positions          |
+| Input                                | Action                                                                   |
+| ------------------------------------ | ------------------------------------------------------------------------ |
+| **Scroll wheel**                     | Zoom in/out centered on image (synced)                                   |
+| **Click + drag**                     | Pan all images                                                           |
+| **Mode selector**                    | Toggle Mosaic ↔ Overlay                                                  |
+| `Alt+1` – `Alt+9`                    | Jump to image 1–9                                                        |
+| `Alt+Tab`                            | Next image                                                               |
+| `Shift+Alt+Tab`                      | Previous image                                                           |
+| `Ctrl+Alt+Right`                     | Next matched pair (paired mode)                                          |
+| `Ctrl+Alt+Left`                      | Previous matched pair (paired mode)                                      |
+| `Ctrl+Shift+PgDn` / `Ctrl+Shift+PgUp` | Next / previous matched pair fallback (paired mode)                    |
+| **Fit** button                       | Reset zoom to fit view                                                   |
+| **?** button                         | Show shortcut help overlay                                               |
+| **Differences** checkbox             | Toggle pixel diff visualization                                          |
+| **Reference / Active** dropdown      | Set reference/active image, drag-reorder image slots, remove image slot |
+| **Hold overlay button**              | Flash reference image in all positions                                   |
 
 ## 📂 Supported Formats
 
@@ -165,17 +176,6 @@ Found a bug or have a feature request? [Open an issue](https://github.com/Christ
 - Expected vs actual behavior
 - VS Code version and OS
 
-## 📋 Changelog
-
-### 1.0.0
-
-- Multi-image mosaic comparison with synchronized zoom & pan
-- Overlay mode with keyboard navigation
-- Pixel-level difference highlighting
-- Image browser sidebar with wildcard filtering
-- Drag & drop image/folder intake
-- State and mode persistence
-- Keyboard shortcuts (`Alt+1-9`, `Alt+Tab`, `Shift+Alt+Tab`)
 
 ## 📄 License
 
