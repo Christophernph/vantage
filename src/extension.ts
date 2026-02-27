@@ -141,7 +141,12 @@ async function buildFolderImageLookup(folder: vscode.Uri): Promise<FolderImageLo
             continue;
         }
 
+        if (duplicateKeys.has(key)) {
+            continue;
+        }
+
         if (imagesByKey.has(key)) {
+            imagesByKey.delete(key);
             duplicateKeys.add(key);
             continue;
         }
@@ -175,6 +180,10 @@ async function buildStrictPairGroups(folders: vscode.Uri[]): Promise<{ groups: S
         const keys = lookups[i].imagesByKey;
         commonKeys = new Set(Array.from(commonKeys).filter(key => keys.has(key)));
     }
+
+    duplicateKeyUnion.forEach(key => {
+        commonKeys.delete(key);
+    });
 
     const sortedKeys = Array.from(commonKeys).sort((a, b) => a.localeCompare(b));
     const groups: StrictPairGroup[] = sortedKeys.map(key => {

@@ -86,8 +86,9 @@ Run **Vantage: Start** (`Ctrl+Shift+P` / `Cmd+Shift+P`) to open an empty panel, 
 | **Click + drag**                     | Pan all images                                                           |
 | **Mode selector**                    | Toggle Mosaic ↔ Overlay                                                  |
 | `Alt+1` – `Alt+9`                    | Jump to image 1–9                                                        |
-| `Alt+Tab`                            | Next image                                                               |
-| `Shift+Alt+Tab`                      | Previous image                                                           |
+| `Ctrl+Alt+Down`                      | Next image                                                               |
+| `Ctrl+Alt+Up`                        | Previous image                                                           |
+| `Alt+Tab` / `Shift+Alt+Tab`          | Next / previous image (legacy fallback)                                 |
 | `Ctrl+Alt+Right`                     | Next matched pair (paired mode)                                          |
 | `Ctrl+Alt+Left`                      | Previous matched pair (paired mode)                                      |
 | `Ctrl+Shift+PgDn` / `Ctrl+Shift+PgUp` | Next / previous matched pair fallback (paired mode)                    |

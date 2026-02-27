@@ -24,6 +24,14 @@
     const contextMenu = document.getElementById('contextMenu');
 
     const vscode = acquireVsCodeApi();
+    const PROTOCOL_VERSION = 1;
+
+    function postToExtension(message) {
+        vscode.postMessage({
+            ...message,
+            protocolVersion: PROTOCOL_VERSION
+        });
+    }
 
     const dissolveSlider = document.getElementById('dissolveSlider');
     const dissolveValue = document.getElementById('dissolveValue');
@@ -128,6 +136,14 @@
         labelEl.appendChild(nameSpan);
 
         if (!image || !image.filename) {
+            return;
+        }
+
+        if (image.missing) {
+            const metadataSpan = document.createElement('span');
+            metadataSpan.className = 'filename-meta';
+            metadataSpan.textContent = 'Missing';
+            labelEl.appendChild(metadataSpan);
             return;
         }
 
@@ -375,7 +391,7 @@
             return index;
         });
 
-        vscode.postMessage({
+        postToExtension({
             command: 'imageOrderChanged',
             order
         });
@@ -447,8 +463,9 @@
         helpContent.innerHTML = `
             <ul>
                 <li><strong>Alt+1..9</strong>: Jump to image 1-9</li>
-                <li><strong>Alt+Tab</strong>: Next image</li>
-                <li><strong>Shift+Alt+Tab</strong>: Previous image</li>
+                <li><strong>Ctrl+Alt+Down</strong>: Next image</li>
+                <li><strong>Ctrl+Alt+Up</strong>: Previous image</li>
+                <li><strong>Alt+Tab / Shift+Alt+Tab</strong>: Next/previous image (legacy fallback)</li>
                 <li><strong>Ctrl+Alt+Right</strong>: Next matched pair</li>
                 <li><strong>Ctrl+Alt+Left</strong>: Previous matched pair</li>
                 <li><strong>Ctrl+Shift+PgDn/PgUp</strong>: Next/previous matched pair (fallback)</li>
@@ -511,7 +528,7 @@
             removeBtn.addEventListener('click', (event) => {
                 event.stopPropagation();
                 if (isPairedModeActive()) {
-                    vscode.postMessage({ command: 'removeImageIndex', index });
+                    postToExtension({ command: 'removeImageIndex', index });
                     return;
                 }
 
@@ -607,6 +624,22 @@
         return event.shiftKey ? -1 : 1;
     }
 
+    function getCtrlAltArrowCycleDirection(event) {
+        if (!event.ctrlKey || !event.altKey || event.metaKey || event.shiftKey) {
+            return 0;
+        }
+
+        if (event.key === 'ArrowDown') {
+            return 1;
+        }
+
+        if (event.key === 'ArrowUp') {
+            return -1;
+        }
+
+        return 0;
+    }
+
     function getNextVisibleIndex(direction) {
         const total = state.images.length;
         if (total === 0) {
@@ -653,6 +686,15 @@
             return;
         }
 
+        const ctrlAltDirection = getCtrlAltArrowCycleDirection(event);
+        if (ctrlAltDirection !== 0) {
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+            cycleOverlay(ctrlAltDirection);
+            return;
+        }
+
         const cycleDirection = getAltTabCycleDirection(event);
         if (cycleDirection !== 0 && isAltTab(event)) {
             event.preventDefault();
@@ -685,7 +727,7 @@
             event.preventDefault();
             event.stopPropagation();
             event.stopImmediatePropagation();
-            vscode.postMessage({ command: 'pairedNext' });
+            postToExtension({ command: 'pairedNext' });
             return;
         }
 
@@ -696,7 +738,7 @@
             event.preventDefault();
             event.stopPropagation();
             event.stopImmediatePropagation();
-            vscode.postMessage({ command: 'pairedPrevious' });
+            postToExtension({ command: 'pairedPrevious' });
             return;
         }
 
@@ -718,7 +760,7 @@
             .split(/\r?\n/)
             .map(line => line.trim())
             .filter(line => line.length > 0 && !line.startsWith('#'))
-            .map(line => line.split(/\s+/)[0]);
+            .map(line => line);
     }
 
     function parsePlainTextDrop(rawValue) {
@@ -726,8 +768,10 @@
             .split(/\r?\n/)
             .map(line => line.trim())
             .filter(line => line.length > 0)
-            .map(line => line.split(/\s+/)[0])
-            .filter(value => value.startsWith('file:') || value.startsWith('/'));
+            .filter(value => value.startsWith('file:')
+                || value.startsWith('/')
+                || value.startsWith('\\\\')
+                || /^[a-zA-Z]:[\\/]/.test(value));
     }
 
     function getDroppedUris(event) {
@@ -841,7 +885,7 @@
             removeBtn.addEventListener('click', (event) => {
                 event.stopPropagation();
                 if (isPairedModeActive()) {
-                    vscode.postMessage({ command: 'removeImageIndex', index });
+                    postToExtension({ command: 'removeImageIndex', index });
                     return;
                 }
 
@@ -986,7 +1030,7 @@
         applyRenderMode({ closeOverlayDropdown: true });
 
         if (notifyExtension) {
-            vscode.postMessage({
+            postToExtension({
                 command: 'renderModeChanged',
                 mode: state.renderMode
             });
@@ -1035,9 +1079,9 @@
 
             const placeholderDiv = document.createElement('div');
             placeholderDiv.className = 'placeholder loading-placeholder';
-            placeholderDiv.textContent = 'Loading…';
+            placeholderDiv.textContent = img?.missing ? 'Missing' : 'Loading…';
 
-            if (img?.data) {
+            if (img?.data && !img?.missing) {
                 imgElement.src = img.data;
                 imgElement.style.display = 'block';
                 placeholderDiv.style.display = 'none';
@@ -1338,7 +1382,7 @@
             return;
         }
 
-        vscode.postMessage({
+        postToExtension({
             command: 'droppedUris',
             uris: droppedUris
         });
@@ -1401,8 +1445,17 @@
 
     window.addEventListener('message', event => {
         const message = event.data;
+        if (!message || typeof message !== 'object' || typeof message.command !== 'string') {
+            return;
+        }
 
-        if (message.command === 'imagesCount') {
+        const command = message.command;
+
+        if (command === 'imagesCount') {
+            if (!Number.isInteger(message.count) || message.count < 0) {
+                return;
+            }
+
             state.images = new Array(message.count);
             state.expectedImageCount = message.count;
             state.loadedImageCount = 0;
@@ -1415,37 +1468,48 @@
             return;
         }
 
-        if (message.command === 'setRenderMode') {
+        if (command === 'setRenderMode') {
+            if (message.mode !== 'mosaic' && message.mode !== 'overlay') {
+                return;
+            }
             setRenderMode(message.mode);
             return;
         }
 
-        if (message.command === 'pairStatus') {
+        if (command === 'pairStatus') {
             state.pairStatus = typeof message.text === 'string' ? message.text : '';
             updateStatusLine();
             return;
         }
 
-        if (message.command === 'selectImageIndex') {
+        if (command === 'selectImageIndex') {
+            if (!Number.isInteger(message.index)) {
+                return;
+            }
             selectImageIndex(message.index);
             return;
         }
 
-        if (message.command === 'cycleImage') {
+        if (command === 'cycleImage') {
             cycleOverlay(1);
             return;
         }
 
-        if (message.command === 'cycleImagePrevious') {
+        if (command === 'cycleImagePrevious') {
             cycleOverlay(-1);
             return;
         }
 
-        if (message.command === 'imageLoaded') {
+        if (command === 'imageLoaded') {
+            if (!Number.isInteger(message.index) || message.index < 0) {
+                return;
+            }
+
             state.images[message.index] = {
                 data: message.data,
                 filename: message.filename,
                 fileSizeBytes: message.fileSizeBytes,
+                missing: false,
                 slotIndex: Number.isInteger(message.slotIndex) ? message.slotIndex : message.index
             };
             state.loadedImageCount++;
@@ -1470,7 +1534,11 @@
             updateStatusLine();
         }
 
-        if (message.command === 'imageUpdated') {
+        if (command === 'imageUpdated') {
+            if (!Number.isInteger(message.index)) {
+                return;
+            }
+
             const idx = message.index;
             if (idx >= 0 && idx < state.images.length) {
                 if (!state.images[idx]) {
@@ -1480,6 +1548,7 @@
                 state.images[idx].data = message.data;
                 state.images[idx].filename = message.filename;
                 state.images[idx].fileSizeBytes = message.fileSizeBytes;
+                state.images[idx].missing = false;
                 delete state.images[idx].width;
                 delete state.images[idx].height;
 
@@ -1502,6 +1571,43 @@
                 }
 
                 // Refresh dissolve overlay if needed
+                updateDissolve();
+            }
+        }
+
+        if (command === 'imageMissing') {
+            if (!Number.isInteger(message.index)) {
+                return;
+            }
+
+            const idx = message.index;
+            if (idx >= 0 && idx < state.images.length) {
+                if (!state.images[idx]) {
+                    state.images[idx] = {};
+                }
+
+                state.images[idx].missing = true;
+                state.images[idx].data = undefined;
+                state.images[idx].filename = message.filename || state.images[idx].filename;
+                delete state.images[idx].fileSizeBytes;
+                delete state.images[idx].width;
+                delete state.images[idx].height;
+
+                const ic = state.imageContainers[idx];
+                if (ic) {
+                    ic.image.removeAttribute('src');
+                    ic.image.style.display = 'none';
+                    if (ic.placeholder) {
+                        ic.placeholder.textContent = 'Missing';
+                        ic.placeholder.style.display = 'block';
+                    }
+                    updateFilenameLabel(ic.filenameLabel, state.images[idx]);
+                }
+
+                updateStatusLine();
+                if (state.showDifferences) {
+                    calculateAllDifferences();
+                }
                 updateDissolve();
             }
         }
@@ -1600,6 +1706,6 @@
         }
     });
 
-    vscode.postMessage({ command: 'webviewReady' });
+    postToExtension({ command: 'webviewReady' });
 
 })();

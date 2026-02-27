@@ -10,6 +10,62 @@ const MIME_TYPES: Record<string, string> = {
     'bmp': 'image/bmp'
 };
 
+type RenderMode = 'mosaic' | 'overlay';
+
+type WebviewToExtensionMessage =
+    | { command: 'webviewReady' }
+    | { command: 'renderModeChanged'; mode: RenderMode }
+    | { command: 'pairedNext' }
+    | { command: 'pairedPrevious' }
+    | { command: 'imageOrderChanged'; order: number[] }
+    | { command: 'removeImageIndex'; index: number }
+    | { command: 'droppedUris'; uris: unknown[] };
+
+function hasCommand(value: unknown): value is { command: string } {
+    return typeof value === 'object'
+        && value !== null
+        && 'command' in value
+        && typeof (value as { command: unknown }).command === 'string';
+}
+
+function isWindowsAbsolutePath(value: string): boolean {
+    return /^[a-zA-Z]:[\\/]/.test(value);
+}
+
+function isUncPath(value: string): boolean {
+    return value.startsWith('\\\\');
+}
+
+function isLikelyAbsolutePath(value: string): boolean {
+    return value.startsWith('/') || isWindowsAbsolutePath(value) || isUncPath(value);
+}
+
+function parseDroppedUri(raw: string): vscode.Uri | undefined {
+    const candidate = raw.trim();
+    if (!candidate) {
+        return undefined;
+    }
+
+    try {
+        if (candidate.startsWith('file:')) {
+            return vscode.Uri.parse(candidate);
+        }
+
+        // Avoid treating Windows drive paths (e.g., C:\foo\bar.png) as URI schemes.
+        if (!isWindowsAbsolutePath(candidate) && /^[a-zA-Z][a-zA-Z\d+.-]*:/.test(candidate)) {
+            return vscode.Uri.parse(candidate);
+        }
+
+        if (isLikelyAbsolutePath(candidate)) {
+            return vscode.Uri.file(candidate);
+        }
+    } catch {
+        return undefined;
+    }
+
+    return undefined;
+}
+
 export class ImageDiffPanel {
     public static currentPanel: ImageDiffPanel | undefined;
     private readonly _panel: vscode.WebviewPanel;
@@ -17,8 +73,8 @@ export class ImageDiffPanel {
     private _disposables: vscode.Disposable[] = [];
     private _pendingImages?: vscode.Uri[];
     private _currentImages: vscode.Uri[] = [];
-    private _pendingRenderMode: 'mosaic' | 'overlay';
-    private readonly _onRenderModeChanged?: (mode: 'mosaic' | 'overlay') => void;
+    private _pendingRenderMode: RenderMode;
+    private readonly _onRenderModeChanged?: (mode: RenderMode) => void;
     private _onDroppedUris?: (uris: vscode.Uri[]) => void;
     private _onImageOrderChanged?: (order: number[]) => void;
     private _onRemoveImageIndex?: (index: number) => void;
@@ -30,8 +86,8 @@ export class ImageDiffPanel {
     public static createOrShow(
         extensionUri: vscode.Uri,
         imageUris?: vscode.Uri[],
-        initialRenderMode: 'mosaic' | 'overlay' = 'mosaic',
-        onRenderModeChanged?: (mode: 'mosaic' | 'overlay') => void,
+        initialRenderMode: RenderMode = 'mosaic',
+        onRenderModeChanged?: (mode: RenderMode) => void,
         onDroppedUris?: (uris: vscode.Uri[]) => void,
         onImageOrderChanged?: (order: number[]) => void,
         onRemoveImageIndex?: (index: number) => void,
@@ -95,8 +151,8 @@ export class ImageDiffPanel {
     private constructor(
         panel: vscode.WebviewPanel,
         extensionUri: vscode.Uri,
-        initialRenderMode: 'mosaic' | 'overlay',
-        onRenderModeChanged?: (mode: 'mosaic' | 'overlay') => void,
+        initialRenderMode: RenderMode,
+        onRenderModeChanged?: (mode: RenderMode) => void,
         onDroppedUris?: (uris: vscode.Uri[]) => void,
         onImageOrderChanged?: (order: number[]) => void,
         onRemoveImageIndex?: (index: number) => void
@@ -114,94 +170,89 @@ export class ImageDiffPanel {
         this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
 
         this._panel.webview.onDidReceiveMessage(
-            async (message) => {
-                if (message.command === 'webviewReady') {
-                    this._webviewReady = true;
-                    this._setRenderMode(this._pendingRenderMode);
-                    this._postPairStatus(this._pendingPairStatus);
-                    if (this._pendingImages) {
-                        await this._loadImages(this._pendingImages);
-                        this._pendingImages = undefined;
-                    }
+            async (rawMessage: unknown) => {
+                if (!hasCommand(rawMessage)) {
                     return;
                 }
 
-                if (message.command === 'renderModeChanged') {
-                    if (message.mode === 'mosaic' || message.mode === 'overlay') {
-                        this._pendingRenderMode = message.mode;
-                        this._onRenderModeChanged?.(message.mode);
-                    }
+                const protocolVersion = (rawMessage as { protocolVersion?: unknown }).protocolVersion;
+                if (protocolVersion !== undefined && protocolVersion !== 1) {
                     return;
                 }
 
-                if (message.command === 'loadImage') {
-                    try {
-                        const uri = vscode.Uri.parse(message.uri);
-                        const fileData = await vscode.workspace.fs.readFile(uri);
-                        const base64 = Buffer.from(fileData).toString('base64');
-                        const mimeType = this._getMimeType(uri.fsPath);
+                const message = rawMessage as WebviewToExtensionMessage;
 
-                        this._panel.webview.postMessage({
-                            command: 'imageLoaded',
-                            data: `data:${mimeType};base64,${base64}`,
-                            filename: uri.fsPath,
-                            fileSizeBytes: fileData.byteLength,
-                            index: message.index
-                        });
-                    } catch (e) {
-                        console.error('Failed to load image:', e);
-                        vscode.window.showErrorMessage(`Failed to load image: ${e}`);
+                switch (message.command) {
+                    case 'webviewReady': {
+                        this._webviewReady = true;
+                        this._setRenderMode(this._pendingRenderMode);
+                        this._postPairStatus(this._pendingPairStatus);
+                        if (this._pendingImages) {
+                            await this._loadImages(this._pendingImages);
+                            this._pendingImages = undefined;
+                        }
+                        return;
                     }
-                }
 
-                if (message.command === 'pairedNext') {
-                    void vscode.commands.executeCommand('vantage.pairedNext');
-                    return;
-                }
-
-                if (message.command === 'pairedPrevious') {
-                    void vscode.commands.executeCommand('vantage.pairedPrevious');
-                    return;
-                }
-
-                if (message.command === 'imageOrderChanged' && Array.isArray(message.order)) {
-                    const order = message.order
-                        .map((value: unknown) => typeof value === 'number' ? value : Number.NaN)
-                        .filter((value: number) => Number.isInteger(value));
-                    if (order.length > 0) {
-                        this._onImageOrderChanged?.(order);
+                    case 'renderModeChanged': {
+                        if (message.mode === 'mosaic' || message.mode === 'overlay') {
+                            this._pendingRenderMode = message.mode;
+                            this._onRenderModeChanged?.(message.mode);
+                        }
+                        return;
                     }
-                    return;
-                }
 
-                if (message.command === 'removeImageIndex') {
-                    const index = typeof message.index === 'number' ? message.index : Number.NaN;
-                    if (Number.isInteger(index)) {
-                        this._onRemoveImageIndex?.(index);
+                    case 'pairedNext': {
+                        void vscode.commands.executeCommand('vantage.pairedNext');
+                        return;
                     }
-                    return;
-                }
 
-                if (message.command === 'droppedUris' && Array.isArray(message.uris)) {
-                    const uris = message.uris
-                        .map((raw: unknown) => typeof raw === 'string' ? raw.trim() : '')
-                        .filter((raw: string) => raw.length > 0)
-                        .map((raw: string) => {
-                            try {
-                                const normalizedRaw = raw.split(/\s+/)[0];
-                                if (normalizedRaw.startsWith('file:') || /^[a-zA-Z][a-zA-Z\d+.-]*:/.test(normalizedRaw)) {
-                                    return vscode.Uri.parse(normalizedRaw);
-                                }
-                                return vscode.Uri.file(normalizedRaw);
-                            } catch {
-                                return undefined;
-                            }
-                        })
-                        .filter((uri: vscode.Uri | undefined): uri is vscode.Uri => uri !== undefined);
-
-                    if (uris.length > 0) {
-                        this._onDroppedUris?.(uris);
+                    case 'pairedPrevious': {
+                        void vscode.commands.executeCommand('vantage.pairedPrevious');
+                        return;
                     }
+
+                    case 'imageOrderChanged': {
+                        if (!Array.isArray(message.order)) {
+                            return;
+                        }
+
+                        const order = message.order
+                            .map((value: unknown) => typeof value === 'number' ? value : Number.NaN)
+                            .filter((value: number) => Number.isInteger(value));
+                        if (order.length > 0) {
+                            this._onImageOrderChanged?.(order);
+                        }
+                        return;
+                    }
+
+                    case 'removeImageIndex': {
+                        const index = typeof message.index === 'number' ? message.index : Number.NaN;
+                        if (Number.isInteger(index)) {
+                            this._onRemoveImageIndex?.(index);
+                        }
+                        return;
+                    }
+
+                    case 'droppedUris': {
+                        if (!Array.isArray(message.uris)) {
+                            return;
+                        }
+
+                        const uris = message.uris
+                            .map((raw: unknown) => typeof raw === 'string' ? raw.trim() : '')
+                            .filter((raw: string) => raw.length > 0)
+                            .map((raw: string) => parseDroppedUri(raw))
+                            .filter((uri: vscode.Uri | undefined): uri is vscode.Uri => uri !== undefined);
+
+                        if (uris.length > 0) {
+                            this._onDroppedUris?.(uris);
+                        }
+                        return;
+                    }
+
+                    default:
+                        return;
                 }
             },
             null,
@@ -254,7 +305,7 @@ export class ImageDiffPanel {
         });
     }
 
-    private _setRenderMode(mode: 'mosaic' | 'overlay'): void {
+    private _setRenderMode(mode: RenderMode): void {
         this._pendingRenderMode = mode;
         if (!this._webviewReady) {
             return;
@@ -355,6 +406,15 @@ export class ImageDiffPanel {
             const pattern = new vscode.RelativePattern(vscode.Uri.joinPath(uri, '..'), uri.path.split('/').pop()!);
             const watcher = vscode.workspace.createFileSystemWatcher(pattern);
 
+            const postImageMissing = () => {
+                const filePath = uri.path || uri.fsPath;
+                this._panel.webview.postMessage({
+                    command: 'imageMissing',
+                    filename: filePath,
+                    index
+                });
+            };
+
             const reloadImage = async () => {
                 try {
                     const fileData = await vscode.workspace.fs.readFile(uri);
@@ -376,6 +436,7 @@ export class ImageDiffPanel {
 
             watcher.onDidChange(reloadImage);
             watcher.onDidCreate(reloadImage);
+            watcher.onDidDelete(postImageMissing);
 
             this._fileWatchers.push(watcher);
         }
@@ -400,6 +461,15 @@ export class ImageDiffPanel {
         this._panel.webview.html = this._getHtmlForWebview(this._panel.webview);
     }
 
+    private _getNonce(): string {
+        const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        let text = '';
+        for (let i = 0; i < 32; i++) {
+            text += possible.charAt(Math.floor(Math.random() * possible.length));
+        }
+        return text;
+    }
+
     private _getHtmlForWebview(webview: vscode.Webview): string {
         const scriptUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this._extensionUri, 'media', 'main.js')
@@ -407,12 +477,14 @@ export class ImageDiffPanel {
         const styleUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this._extensionUri, 'media', 'style.css')
         );
+        const nonce = this._getNonce();
 
         return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
     <link href="${styleUri}" rel="stylesheet">
     <title>Vantage</title>
 </head>
@@ -482,7 +554,7 @@ export class ImageDiffPanel {
         <div class="context-menu-separator"></div>
         <div class="context-menu-item" data-action="help">Keyboard Shortcuts</div>
     </div>
-    <script src="${scriptUri}"></script>
+    <script nonce="${nonce}" src="${scriptUri}"></script>
 </body>
 </html>`;
     }
