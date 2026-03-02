@@ -1,13 +1,14 @@
 (function () {
     const imagesContainer = document.getElementById('images-container');
     const overlayBtn = document.getElementById('overlayBtn');
+    const normalizeFitBtn = document.getElementById('normalizeFitBtn');
     const fitAllBtn = document.getElementById('fitAllBtn');
     const helpBtn = document.getElementById('helpBtn');
     const closeHelpBtn = document.getElementById('closeHelpBtn');
     const container = document.querySelector('.container');
-    const zoomLevelEl = document.getElementById('zoom-level');
+    const zoomInputEl = document.getElementById('zoomInput');
     const statusLine = document.getElementById('status-line');
-    const differencesCheckbox = document.getElementById('differencesCheckbox');
+    const differencesBtn = document.getElementById('differencesBtn');
     const referenceDetails = document.getElementById('referenceDetails');
     const referenceSummary = document.getElementById('referenceSummary');
     const referenceList = document.getElementById('referenceList');
@@ -52,7 +53,8 @@
         imageContainers: [],
         expectedImageCount: 0,
         loadedImageCount: 0,
-        pairStatus: ''
+        pairStatus: '',
+        normalizeVisualScale: false
     };
 
     const detachedControls = {
@@ -435,7 +437,92 @@
     }
 
     function updateZoomDisplay() {
-        zoomLevelEl.textContent = `${Math.round(state.scale * 100)}%`;
+        if (!zoomInputEl) {
+            return;
+        }
+
+        zoomInputEl.value = `${Math.round(state.scale * 100)}%`;
+    }
+
+    function updateNormalizeFitButton() {
+        if (!normalizeFitBtn) {
+            return;
+        }
+
+        normalizeFitBtn.classList.toggle('active', state.normalizeVisualScale);
+        normalizeFitBtn.setAttribute('aria-pressed', state.normalizeVisualScale ? 'true' : 'false');
+    }
+
+    function updateDifferencesButton() {
+        if (!differencesBtn) {
+            return;
+        }
+
+        differencesBtn.classList.toggle('active', state.showDifferences);
+        differencesBtn.setAttribute('aria-pressed', state.showDifferences ? 'true' : 'false');
+    }
+
+    function updatePixelRenderingMode() {
+        document.body.classList.toggle('pixelated-scaling', state.normalizeVisualScale);
+    }
+
+    function applyNormalizeVisualScale(enabled) {
+        state.normalizeVisualScale = enabled;
+        updateNormalizeFitButton();
+        updatePixelRenderingMode();
+        updateTransform();
+        updateDissolve();
+        if (state.showDifferences) {
+            calculateAllDifferences();
+        }
+    }
+
+    function parseZoomInputScale(value) {
+        if (typeof value !== 'string') {
+            return null;
+        }
+
+        const trimmed = value.trim();
+        if (!trimmed) {
+            return null;
+        }
+
+        const withoutPercent = trimmed.endsWith('%') ? trimmed.slice(0, -1).trim() : trimmed;
+        const parsedPercent = Number.parseFloat(withoutPercent);
+
+        if (!Number.isFinite(parsedPercent) || parsedPercent <= 0) {
+            return null;
+        }
+
+        const rawScale = parsedPercent / 100;
+        return Math.max(0.05, Math.min(50, rawScale));
+    }
+
+    function applyScaleKeepingCenter(nextScale) {
+        if (!Number.isFinite(nextScale) || nextScale <= 0 || nextScale === state.scale) {
+            return;
+        }
+
+        const scaleChange = nextScale / state.scale;
+        state.pointX = state.pointX * scaleChange;
+        state.pointY = state.pointY * scaleChange;
+        state.scale = nextScale;
+        updateTransform();
+        updateZoomDisplay();
+    }
+
+    function commitZoomInput() {
+        if (!zoomInputEl) {
+            return;
+        }
+
+        const parsedScale = parseZoomInputScale(zoomInputEl.value);
+        if (parsedScale === null) {
+            updateZoomDisplay();
+            return;
+        }
+
+        applyScaleKeepingCenter(parsedScale);
     }
 
     function updateStatusLine() {
@@ -455,6 +542,82 @@
         statusLine.textContent = state.pairStatus || activeLabel || '';
     }
 
+    function getFittedImageScale(image) {
+        if (!image || image.missing) {
+            return 1;
+        }
+
+        const width = Number.isFinite(image.width) ? image.width : 0;
+        const height = Number.isFinite(image.height) ? image.height : 0;
+        if (width <= 0 || height <= 0) {
+            return 1;
+        }
+
+        const viewportWidth = Math.max(1, container.clientWidth || 1);
+        const viewportHeight = Math.max(1, container.clientHeight || 1);
+        return Math.min(1, viewportWidth / width, viewportHeight / height);
+    }
+
+    function getLargestLoadedRenderedMinDimension() {
+        let largestRenderedMinDimension = 0;
+        state.images.forEach(image => {
+            if (!image || image.missing) {
+                return;
+            }
+
+            const width = Number.isFinite(image.width) ? image.width : 0;
+            const height = Number.isFinite(image.height) ? image.height : 0;
+            if (width <= 0 || height <= 0) {
+                return;
+            }
+
+            const fittedScale = getFittedImageScale(image);
+            const renderedMinDimension = Math.min(width, height) * fittedScale;
+            if (renderedMinDimension > largestRenderedMinDimension) {
+                largestRenderedMinDimension = renderedMinDimension;
+            }
+        });
+
+        return largestRenderedMinDimension;
+    }
+
+    function getImageScaleCompensation(imageIndex) {
+        if (!state.normalizeVisualScale) {
+            return 1;
+        }
+
+        const baselineRenderedMinDimension = getLargestLoadedRenderedMinDimension();
+        if (baselineRenderedMinDimension <= 0) {
+            return 1;
+        }
+
+        const image = state.images[imageIndex];
+        if (!image || image.missing) {
+            return 1;
+        }
+
+        const width = Number.isFinite(image.width) ? image.width : 0;
+        const height = Number.isFinite(image.height) ? image.height : 0;
+        if (width <= 0 || height <= 0) {
+            return 1;
+        }
+
+        const imageRenderedMinDimension = Math.min(width, height) * getFittedImageScale(image);
+        if (imageRenderedMinDimension <= 0) {
+            return 1;
+        }
+
+        return baselineRenderedMinDimension / imageRenderedMinDimension;
+    }
+
+    function getTransformStringForImage(imageIndex) {
+        const compensation = getImageScaleCompensation(imageIndex);
+        const pointX = state.pointX;
+        const pointY = state.pointY;
+        const scale = state.scale * compensation;
+        return `translate(${pointX}px, ${pointY}px) scale(${scale})`;
+    }
+
     function renderHelpContent() {
         if (!helpContent) {
             return;
@@ -469,9 +632,10 @@
                 <li><strong>Ctrl+Alt+Right</strong>: Next matched pair</li>
                 <li><strong>Ctrl+Alt+Left</strong>: Previous matched pair</li>
                 <li><strong>Ctrl+Shift+PgDn/PgUp</strong>: Next/previous matched pair (fallback)</li>
+                <li><strong>Fit</strong>: Toggle visual scale normalization across different resolutions</li>
                 <li><strong>Reference dropdown</strong>: Set/remove images in Mosaic</li>
                 <li><strong>Active dropdown</strong>: Set/remove active images in Overlay</li>
-                <li><strong>Fit</strong>: Reset to fit all images</li>
+                <li><strong>↺</strong>: Reset view to default pan/zoom</li>
                 <li><strong>?</strong>: Toggle this help overlay</li>
                 <li><strong>Esc</strong>: Close this help overlay</li>
             </ul>
@@ -974,7 +1138,7 @@
 
     function clearOverlayArtifacts() {
         state.showDifferences = false;
-        differencesCheckbox.checked = false;
+        updateDifferencesButton();
         state.dissolveAmount = 0;
         dissolveSlider.value = '0';
         dissolveValue.textContent = '0%';
@@ -1072,6 +1236,12 @@
                 placeholderDiv.style.display = 'none';
                 imgElement.style.display = 'block';
 
+                updateTransform();
+                updateDissolve();
+                if (state.showDifferences) {
+                    calculateAllDifferences();
+                }
+
                 if (index === state.activeOverlayIndex) {
                     updateStatusLine();
                 }
@@ -1153,7 +1323,7 @@
             imgContainer.overlayImage.src = referenceImg.data;
             imgContainer.overlayImage.style.opacity = state.dissolveAmount / 100;
             imgContainer.overlayImage.style.display = state.dissolveAmount > 0 ? 'block' : 'none';
-            imgContainer.overlayImage.style.transform = getTransformString();
+            imgContainer.overlayImage.style.transform = getTransformStringForImage(imgContainer.imageIndex);
         });
     }
 
@@ -1190,11 +1360,11 @@
             const comparisonImg = state.images[imgContainer.imageIndex];
             if (!comparisonImg?.data) return;
 
-            calculateDifference(referenceImg, comparisonImg, imgContainer.diffCanvas);
+            calculateDifference(referenceImg, comparisonImg, imgContainer.diffCanvas, imgContainer.imageIndex);
         });
     }
 
-    function calculateDifference(refImg, compImg, diffCanvas) {
+    function calculateDifference(refImg, compImg, diffCanvas, imageIndex) {
         const img1 = new Image();
         const img2 = new Image();
         let loadedCount = 0;
@@ -1202,7 +1372,7 @@
         function onLoad() {
             loadedCount++;
             if (loadedCount === 2) {
-                processDifferences(img1, img2, diffCanvas);
+                processDifferences(img1, img2, diffCanvas, imageIndex);
             }
         }
 
@@ -1212,7 +1382,7 @@
         img2.src = compImg.data;
     }
 
-    function processDifferences(img1, img2, diffCanvas) {
+    function processDifferences(img1, img2, diffCanvas, imageIndex) {
         const width = Math.max(img1.width, img2.width);
         const height = Math.max(img1.height, img2.height);
 
@@ -1259,7 +1429,7 @@
         }
 
         ctx.putImageData(diffData, 0, 0);
-        diffCanvas.style.transform = getTransformString();
+        diffCanvas.style.transform = getTransformStringForImage(imageIndex);
     }
 
     function toggleDifferences(show) {
@@ -1269,6 +1439,7 @@
         }
 
         state.showDifferences = show;
+        updateDifferencesButton();
 
         if (show) {
             calculateAllDifferences();
@@ -1282,13 +1453,9 @@
         });
     }
 
-    function getTransformString() {
-        return `translate(${state.pointX}px, ${state.pointY}px) scale(${state.scale})`;
-    }
-
     function updateTransform() {
-        const transform = getTransformString();
         state.imageContainers.forEach(imgContainer => {
+            const transform = getTransformStringForImage(imgContainer.imageIndex);
             imgContainer.image.style.transform = transform;
             imgContainer.overlayImage.style.transform = transform;
             imgContainer.diffCanvas.style.transform = transform;
@@ -1315,16 +1482,7 @@
         const newScale = state.scale * delta;
 
         if (newScale < 0.05 || newScale > 50) return;
-
-        // Scale the pan offset so the point currently at the viewport center
-        // stays at the viewport center after the zoom.
-        const scaleChange = newScale / state.scale;
-        state.pointX = state.pointX * scaleChange;
-        state.pointY = state.pointY * scaleChange;
-
-        state.scale = newScale;
-        updateTransform();
-        updateZoomDisplay();
+        applyScaleKeepingCenter(newScale);
     });
 
     // Pan
@@ -1350,6 +1508,14 @@
 
     container.addEventListener('mouseleave', () => {
         state.panning = false;
+    });
+
+    window.addEventListener('resize', () => {
+        updateTransform();
+        updateDissolve();
+        if (state.showDifferences) {
+            calculateAllDifferences();
+        }
     });
 
     function setDropTargetActive(active) {
@@ -1389,9 +1555,17 @@
     });
 
     // Event listeners for controls
-    differencesCheckbox.addEventListener('change', (e) => {
-        toggleDifferences(e.target.checked);
-    });
+    if (differencesBtn) {
+        differencesBtn.addEventListener('click', () => {
+            toggleDifferences(!state.showDifferences);
+        });
+    }
+
+    if (normalizeFitBtn) {
+        normalizeFitBtn.addEventListener('click', () => {
+            applyNormalizeVisualScale(!state.normalizeVisualScale);
+        });
+    }
 
     dissolveSlider.addEventListener('input', (e) => {
         if (state.renderMode === 'overlay') {
@@ -1409,6 +1583,20 @@
     fitAllBtn.addEventListener('click', () => {
         resetView();
     });
+
+    if (zoomInputEl) {
+        zoomInputEl.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                commitZoomInput();
+                zoomInputEl.select();
+            }
+        });
+
+        zoomInputEl.addEventListener('blur', () => {
+            commitZoomInput();
+        });
+    }
 
     helpBtn.addEventListener('click', () => {
         setHelpVisible(true);
@@ -1619,6 +1807,8 @@
     document.addEventListener('keydown', handleGeneralShortcuts, true);
 
     renderHelpContent();
+    updateNormalizeFitButton();
+    updatePixelRenderingMode();
     updateStatusLine();
 
     // Context menu
@@ -1697,8 +1887,7 @@
                 break;
             }
             case 'toggleDifferences':
-                differencesCheckbox.checked = !differencesCheckbox.checked;
-                toggleDifferences(differencesCheckbox.checked);
+                toggleDifferences(!state.showDifferences);
                 break;
             case 'help':
                 setHelpVisible(true);

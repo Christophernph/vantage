@@ -92,7 +92,9 @@ Run **Vantage: Start** (`Ctrl+Shift+P` / `Cmd+Shift+P`) to open an empty panel, 
 | `Ctrl+Alt+Right`                     | Next matched pair (paired mode)                                          |
 | `Ctrl+Alt+Left`                      | Previous matched pair (paired mode)                                      |
 | `Ctrl+Shift+PgDn` / `Ctrl+Shift+PgUp` | Next / previous matched pair fallback (paired mode)                    |
-| **Fit** button                       | Reset zoom to fit view                                                   |
+| **Zoom** input                       | Type a zoom percent (e.g., `125` or `125%`) and press Enter/blur to apply |
+| **↺** button                         | Reset view to default pan/zoom                                           |
+| **Fit** button                       | Toggle visual scale normalization across different resolutions            |
 | **?** button                         | Show shortcut help overlay                                               |
 | **Differences** checkbox             | Toggle pixel diff visualization                                          |
 | **Reference / Active** dropdown      | Set reference/active image, drag-reorder image slots, remove image slot |
