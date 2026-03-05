@@ -750,7 +750,7 @@ export function activate(context: vscode.ExtensionContext): void {
     context.subscriptions.push(
         vscode.commands.registerCommand('vantage.setAsDefaultViewer', async () => {
             const config = vscode.workspace.getConfiguration('vantage');
-            const currentValue = config.get<boolean>('defaultImageViewer', true);
+            const currentValue = config.get<boolean>('defaultImageViewer', false);
             
             if (currentValue) {
                 vscode.window.showInformationMessage('Vantage is already set as the default image viewer.');
@@ -770,7 +770,7 @@ export function activate(context: vscode.ExtensionContext): void {
         })
     );
 
-    const defaultViewerEnabled = vscode.workspace.getConfiguration('vantage').get<boolean>('defaultImageViewer', true);
+    const defaultViewerEnabled = vscode.workspace.getConfiguration('vantage').get<boolean>('defaultImageViewer', false);
     
     if (defaultViewerEnabled) {
         context.subscriptions.push(

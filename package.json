@@ -280,7 +280,7 @@
             "properties": {
                 "vantage.defaultImageViewer": {
                     "type": "boolean",
-                    "default": true,
+                    "default": false,
                     "markdownDescription": "Use Vantage as the default image viewer. When enabled, clicking on image files will open them in Vantage. When disabled, use the **Open With...** context menu to choose Vantage. Requires reloading the window after changing."
                 }
             }
