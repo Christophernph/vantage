@@ -684,6 +684,27 @@ export function activate(context: vscode.ExtensionContext): void {
             }
         })
     );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('vantage.openFile', async (...args: unknown[]) => {
+            const uri = getUriFromArgs(args);
+            if (!uri || !isImageFile(uri)) {
+                vscode.window.showErrorMessage('Please select an image file.');
+                return;
+            }
+
+            clearStrictPairSession();
+            void openPanel([uri]);
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.window.registerCustomEditorProvider(
+            VantageEditorProvider.viewType,
+            new VantageEditorProvider(context.extensionUri),
+            { webviewOptions: { retainContextWhenHidden: true } }
+        )
+    );
 }
 
 function updateSidebarUi(
@@ -796,6 +817,29 @@ async function collectImagesRecursively(folderUri: vscode.Uri): Promise<vscode.U
     }
 
     return results;
+}
+
+class VantageEditorProvider implements vscode.CustomReadonlyEditorProvider<vscode.CustomDocument> {
+    public static readonly viewType = 'vantage.imageViewer';
+
+    constructor(private readonly extensionUri: vscode.Uri) {}
+
+    openCustomDocument(
+        uri: vscode.Uri,
+        _openContext: vscode.CustomDocumentOpenContext,
+        _token: vscode.CancellationToken
+    ): vscode.CustomDocument {
+        return { uri, dispose: () => {} };
+    }
+
+    resolveCustomEditor(
+        document: vscode.CustomDocument,
+        webviewPanel: vscode.WebviewPanel,
+        _token: vscode.CancellationToken
+    ): void {
+        const instance = ImageDiffPanel.createForPanel(webviewPanel, this.extensionUri);
+        instance.loadImages([document.uri]);
+    }
 }
 
 export function deactivate() { }

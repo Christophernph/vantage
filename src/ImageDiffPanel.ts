@@ -103,7 +103,7 @@ export class ImageDiffPanel {
             ImageDiffPanel.currentPanel._onDroppedUris = onDroppedUris;
             ImageDiffPanel.currentPanel._onImageOrderChanged = onImageOrderChanged;
             ImageDiffPanel.currentPanel._onRemoveImageIndex = onRemoveImageIndex;
-            if (imageUris && imageUris.length >= 2) {
+            if (imageUris && imageUris.length >= 1) {
                 ImageDiffPanel.currentPanel.loadImages(imageUris, slotOrder);
             }
             return;
@@ -143,9 +143,26 @@ export class ImageDiffPanel {
             onRemoveImageIndex
         );
 
-        if (imageUris && imageUris.length >= 2) {
+        if (imageUris && imageUris.length >= 1) {
             ImageDiffPanel.currentPanel.loadImages(imageUris, slotOrder);
         }
+    }
+
+    /**
+     * Creates a new ImageDiffPanel instance backed by an externally-provided
+     * WebviewPanel (e.g. from a VS Code custom editor). The caller is responsible
+     * for the lifecycle of `panel`; this method only sets up the webview content
+     * and message handling inside it.
+     */
+    public static createForPanel(
+        panel: vscode.WebviewPanel,
+        extensionUri: vscode.Uri
+    ): ImageDiffPanel {
+        panel.webview.options = {
+            enableScripts: true,
+            localResourceRoots: [vscode.Uri.joinPath(extensionUri, 'media')]
+        };
+        return new ImageDiffPanel(panel, extensionUri, 'mosaic');
     }
 
     private constructor(
