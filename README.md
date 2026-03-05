@@ -31,8 +31,7 @@ Compare two or more images side-by-side in an adaptive mosaic grid with synchron
 ### From the Marketplace
 
 1. Install **[Vantage Image Compare](https://marketplace.visualstudio.com/items?itemName=vantage-rd.vantage)** from the Extensions panel
-2. Or right-click any image → **Vantage: Open in Vantage** to open it in Vantage
-3. For multi-image comparison, select 2+ images → Right-click → **Vantage: Compare Images**
+2. Right-click one or more images → **Vantage: Open**
 
 To use Vantage as your default image viewer, run **Vantage: Set as Default Image Viewer** from the Command Palette.
 

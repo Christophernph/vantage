@@ -477,23 +477,29 @@ export function activate(context: vscode.ExtensionContext): void {
         })
     );
 
+    const openImagesCommand = async (...args: unknown[]): Promise<void> => {
+        const uris = getUrisFromArgs(args);
+
+        if (uris.length === 0) {
+            vscode.window.showErrorMessage('Please select one or more image files.');
+            return;
+        }
+
+        if (!uris.every(isImageFile)) {
+            vscode.window.showErrorMessage('All selected files must be images.');
+            return;
+        }
+
+        clearStrictPairSession();
+        void openPanel(uris);
+    };
+
     context.subscriptions.push(
-        vscode.commands.registerCommand('vantage.compareImages', async (...args: unknown[]) => {
-            const uris = getUrisFromArgs(args);
+        vscode.commands.registerCommand('vantage.open', openImagesCommand)
+    );
 
-            if (uris.length < 2) {
-                vscode.window.showErrorMessage('Please select at least 2 image files to compare.');
-                return;
-            }
-
-            if (!uris.every(isImageFile)) {
-                vscode.window.showErrorMessage('All selected files must be images.');
-                return;
-            }
-
-            clearStrictPairSession();
-            void openPanel(uris);
-        })
+    context.subscriptions.push(
+        vscode.commands.registerCommand('vantage.compareImages', openImagesCommand)
     );
 
     context.subscriptions.push(
@@ -735,16 +741,7 @@ export function activate(context: vscode.ExtensionContext): void {
     );
 
     context.subscriptions.push(
-        vscode.commands.registerCommand('vantage.openFile', async (...args: unknown[]) => {
-            const uri = getUriFromArgs(args);
-            if (!uri || !isImageFile(uri)) {
-                vscode.window.showErrorMessage('Please select an image file.');
-                return;
-            }
-
-            clearStrictPairSession();
-            void openPanel([uri]);
-        })
+        vscode.commands.registerCommand('vantage.openFile', openImagesCommand)
     );
 
     context.subscriptions.push(

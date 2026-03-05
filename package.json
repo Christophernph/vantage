@@ -23,8 +23,8 @@
                 "title": "Vantage: Start"
             },
             {
-                "command": "vantage.compareImages",
-                "title": "Vantage: Compare Images"
+                "command": "vantage.open",
+                "title": "Vantage: Open"
             },
             {
                 "command": "vantage.startPairedComparison",
@@ -125,10 +125,6 @@
                 "title": "Open with Default App"
             },
             {
-                "command": "vantage.openFile",
-                "title": "Vantage: Open in Vantage"
-            },
-            {
                 "command": "vantage.setAsDefaultViewer",
                 "title": "Vantage: Set as Default Image Viewer"
             }
@@ -136,13 +132,8 @@
         "menus": {
             "explorer/context": [
                 {
-                    "command": "vantage.compareImages",
+                    "command": "vantage.open",
                     "when": "resourceExtname =~ /\\.(png|jpg|jpeg|gif|webp|bmp|svg)$/i",
-                    "group": "2_workspace"
-                },
-                {
-                    "command": "vantage.openFile",
-                    "when": "resourceExtname =~ /\\.(png|jpg|jpeg|gif|webp|bmp|svg)$/i && !listMultiSelection",
                     "group": "2_workspace"
                 }
             ],

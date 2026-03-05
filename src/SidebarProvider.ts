@@ -43,8 +43,8 @@ export class SidebarNode extends vscode.TreeItem {
 
         if (nodeType === 'image') {
             this.command = {
-                command: 'vantage.openFile',
-                title: 'Open in Vantage',
+                command: 'vantage.open',
+                title: 'Open',
                 arguments: [uri]
             };
         }
