@@ -11,7 +11,6 @@
 <p align="center">
   <a href="https://marketplace.visualstudio.com/items?itemName=vantage-rd.vantage"><img src="https://img.shields.io/visual-studio-marketplace/v/vantage-rd.vantage?label=Marketplace&color=007acc" alt="VS Marketplace Version"></a>
   <a href="https://marketplace.visualstudio.com/items?itemName=vantage-rd.vantage"><img src="https://img.shields.io/visual-studio-marketplace/i/vantage-rd.vantage?color=007acc" alt="Installs"></a>
-  <a href="https://github.com/Christophernph/vantage/blob/main/LICENSE"><img src="https://img.shields.io/github/license/Christophernph/vantage?color=007acc" alt="License"></a>
 </p>
 
 ---
@@ -20,58 +19,22 @@ Compare two or more images side-by-side in an adaptive mosaic grid with synchron
 
 ## ✨ Features
 
-### Single Image Viewing & Multi-Image Comparison
-
-View single images with full zoom and pan controls, or compare 2+ images simultaneously in a responsive grid. Works as your default image viewer or for side-by-side comparisons.
-
-### Multi-Image Mosaic
-
-Compare 2+ images simultaneously in a responsive grid that adapts to your panel size. Every image stays in sync — zoom into a detail on one and all others follow.
-
-### Overlay Mode
-
-Switch to a single-viewport overlay and instantly jump between images with keyboard shortcuts. Perfect for rapid before/after comparisons.
-
-### Pixel-Level Differences
-
-Toggle difference visualization to see exactly what changed between the reference image and each comparison image, down to the pixel.
-
-### Reference Image Selection
-
-Designate any image as the reference with a clear blue border highlight. Press and hold the overlay button to temporarily flash the reference across all grid positions.
-
-### Synchronized Zoom & Pan
-
-Zoom to any point in any image — all viewports stay perfectly aligned. Drag to pan across all images simultaneously.
-
-### Image Browser Sidebar
-
-Browse image-only directory trees from the Activity Bar. Set a root path, filter with wildcard patterns (`*.png`, `*_mask.*`), multi-select files and folders, and open everything in the compare panel in one click.
-
-### Paired Folder Comparison
-
-Start a strict paired workflow across 2+ folders and step through matched filenames (stem-based matching, extension-agnostic). Navigate pairs with keyboard shortcuts while keeping all normal comparison tools.
-
-### Reorderable Image Lists
-
-Reorder images from the **Reference** / **Active** dropdown using drag-and-drop handles. In paired mode, reordering persists while stepping to next/previous pairs.
-
-### Drag & Drop
-
-Drag images or entire folders from the VS Code Explorer directly into the compare panel to add them to the current session.
-
-### State Preservation
-
-Your zoom level, pan position, view mode, and selections persist across tab switches. Pick up right where you left off.
+- View a single image or compare multiple images in one panel.
+- Use **Mosaic** mode for side-by-side review or **Overlay** mode for quick A/B switching.
+- Zoom and pan are synchronized so every image stays aligned while inspecting details.
+- Optionally enable pixel-diff to highlight per-pixel changes against a reference image.
+- Load images from Explorer context menu, the Vantage sidebar, or drag-and-drop into the panel.
+- Optional paired-folder comparison lets you step through matched filenames across selected folders.
 
 ## 🚀 Getting Started
 
 ### From the Marketplace
 
 1. Install **[Vantage Image Compare](https://marketplace.visualstudio.com/items?itemName=vantage-rd.vantage)** from the Extensions panel
-2. To use Vantage as your default image viewer, run **Vantage: Set as Default Image Viewer** from the Command Palette
-3. Or right-click any image → **Vantage: Open in Vantage** to open it in Vantage
-4. For multi-image comparison, select 2+ images → Right-click → **Vantage: Compare Images**
+2. Or right-click any image → **Vantage: Open in Vantage** to open it in Vantage
+3. For multi-image comparison, select 2+ images → Right-click → **Vantage: Compare Images**
+
+To use Vantage as your default image viewer, run **Vantage: Set as Default Image Viewer** from the Command Palette.
 
 ### From the Command Palette
 
@@ -94,17 +57,14 @@ Run **Vantage: Start** (`Ctrl+Shift+P` / `Cmd+Shift+P`) to open an empty panel, 
 | `Alt+1` – `Alt+9`                    | Jump to image 1–9                                                        |
 | `Ctrl+Alt+Down`                      | Next image                                                               |
 | `Ctrl+Alt+Up`                        | Previous image                                                           |
-| `Alt+Tab` / `Shift+Alt+Tab`          | Next / previous image (legacy fallback)                                 |
 | `Ctrl+Alt+Right`                     | Next matched pair (paired mode)                                          |
 | `Ctrl+Alt+Left`                      | Previous matched pair (paired mode)                                      |
-| `Ctrl+Shift+PgDn` / `Ctrl+Shift+PgUp` | Next / previous matched pair fallback (paired mode)                    |
 | **Zoom** input                       | Type a zoom percent (e.g., `125` or `125%`) and press Enter/blur to apply |
 | **↺** button                         | Reset view to default pan/zoom                                           |
 | **Fit** button                       | Toggle visual scale normalization across different resolutions            |
 | **?** button                         | Show shortcut help overlay                                               |
 | **Differences** checkbox             | Toggle pixel diff visualization                                          |
-| **Reference / Active** dropdown      | Set reference/active image, drag-reorder image slots, remove image slot |
-| **Hold overlay button**              | Flash reference image in all positions                                   |
+| **Reference / Active** dropdown      | Set the reference or active image, and remove images                     |
 
 ## 📂 Supported Formats
 
@@ -210,7 +170,7 @@ Found a bug or have a feature request? [Open an issue](https://github.com/Christ
 
 ## 📄 License
 
-TBD
+No license has been specified yet.
 
 ---
 
