@@ -582,8 +582,8 @@ export function activate(context: vscode.ExtensionContext): void {
             }
 
             const images = await collectImagesFromNodes(selection);
-            if (images.length < 2) {
-                vscode.window.showErrorMessage('Please select folders/files that contain at least 2 images.');
+            if (images.length === 0) {
+                vscode.window.showErrorMessage('No images found in selection.');
                 return;
             }
 
@@ -681,6 +681,69 @@ export function activate(context: vscode.ExtensionContext): void {
             const node = item ?? sidebarTreeView.selection[0];
             if (node) {
                 void vscode.env.openExternal(node.uri);
+            }
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('vantage.openFile', async (...args: unknown[]) => {
+            const uri = getUriFromArgs(args);
+            if (!uri || !isImageFile(uri)) {
+                vscode.window.showErrorMessage('Please select an image file.');
+                return;
+            }
+
+            clearStrictPairSession();
+            void openPanel([uri]);
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('vantage.setAsDefaultViewer', async () => {
+            const config = vscode.workspace.getConfiguration('vantage');
+            const currentValue = config.get<boolean>('defaultImageViewer', true);
+            
+            if (currentValue) {
+                vscode.window.showInformationMessage('Vantage is already set as the default image viewer.');
+                return;
+            }
+            
+            await config.update('defaultImageViewer', true, vscode.ConfigurationTarget.Global);
+            
+            const selected = await vscode.window.showInformationMessage(
+                'Vantage is now set as the default image viewer. Reload the window for changes to take effect?',
+                'Reload Window'
+            );
+            
+            if (selected === 'Reload Window') {
+                vscode.commands.executeCommand('workbench.action.reloadWindow');
+            }
+        })
+    );
+
+    const defaultViewerEnabled = vscode.workspace.getConfiguration('vantage').get<boolean>('defaultImageViewer', true);
+    
+    if (defaultViewerEnabled) {
+        context.subscriptions.push(
+            vscode.window.registerCustomEditorProvider(
+                VantageEditorProvider.viewType,
+                new VantageEditorProvider(context.extensionUri),
+                { webviewOptions: { retainContextWhenHidden: true } }
+            )
+        );
+    }
+
+    context.subscriptions.push(
+        vscode.workspace.onDidChangeConfiguration(e => {
+            if (e.affectsConfiguration('vantage.defaultImageViewer')) {
+                vscode.window.showInformationMessage(
+                    'Please reload the window for the Vantage default viewer setting to take effect.',
+                    'Reload Window'
+                ).then(selection => {
+                    if (selection === 'Reload Window') {
+                        vscode.commands.executeCommand('workbench.action.reloadWindow');
+                    }
+                });
             }
         })
     );
@@ -796,6 +859,29 @@ async function collectImagesRecursively(folderUri: vscode.Uri): Promise<vscode.U
     }
 
     return results;
+}
+
+class VantageEditorProvider implements vscode.CustomReadonlyEditorProvider<vscode.CustomDocument> {
+    public static readonly viewType = 'vantage.imageViewer';
+
+    constructor(private readonly extensionUri: vscode.Uri) {}
+
+    openCustomDocument(
+        uri: vscode.Uri,
+        _openContext: vscode.CustomDocumentOpenContext,
+        _token: vscode.CancellationToken
+    ): vscode.CustomDocument {
+        return { uri, dispose: () => {} };
+    }
+
+    resolveCustomEditor(
+        document: vscode.CustomDocument,
+        webviewPanel: vscode.WebviewPanel,
+        _token: vscode.CancellationToken
+    ): void {
+        const instance = ImageDiffPanel.createForPanel(webviewPanel, this.extensionUri);
+        instance.loadImages([document.uri]);
+    }
 }
 
 export function deactivate() { }

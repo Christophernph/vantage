@@ -123,6 +123,14 @@
             {
                 "command": "vantage.sidebarOpenNative",
                 "title": "Open with Default App"
+            },
+            {
+                "command": "vantage.openFile",
+                "title": "Vantage: Open in Vantage"
+            },
+            {
+                "command": "vantage.setAsDefaultViewer",
+                "title": "Vantage: Set as Default Image Viewer"
             }
         ],
         "menus": {
@@ -130,6 +138,11 @@
                 {
                     "command": "vantage.compareImages",
                     "when": "resourceExtname =~ /\\.(png|jpg|jpeg|gif|webp|bmp|svg)$/i",
+                    "group": "2_workspace"
+                },
+                {
+                    "command": "vantage.openFile",
+                    "when": "resourceExtname =~ /\\.(png|jpg|jpeg|gif|webp|bmp|svg)$/i && !listMultiSelection",
                     "group": "2_workspace"
                 }
             ],
@@ -210,6 +223,67 @@
                     "icon": "media/icon.png"
                 }
             ]
+        },
+        "customEditors": [
+            {
+                "viewType": "vantage.imageViewer",
+                "displayName": "Vantage Image Viewer",
+                "selector": [
+                    {
+                        "filenamePattern": "*.png"
+                    },
+                    {
+                        "filenamePattern": "*.PNG"
+                    },
+                    {
+                        "filenamePattern": "*.jpg"
+                    },
+                    {
+                        "filenamePattern": "*.JPG"
+                    },
+                    {
+                        "filenamePattern": "*.jpeg"
+                    },
+                    {
+                        "filenamePattern": "*.JPEG"
+                    },
+                    {
+                        "filenamePattern": "*.gif"
+                    },
+                    {
+                        "filenamePattern": "*.GIF"
+                    },
+                    {
+                        "filenamePattern": "*.webp"
+                    },
+                    {
+                        "filenamePattern": "*.WEBP"
+                    },
+                    {
+                        "filenamePattern": "*.bmp"
+                    },
+                    {
+                        "filenamePattern": "*.BMP"
+                    },
+                    {
+                        "filenamePattern": "*.svg"
+                    },
+                    {
+                        "filenamePattern": "*.SVG"
+                    }
+                ],
+                "priority": "option"
+            }
+        ],
+        "configuration": {
+            "title": "Vantage",
+            "properties": {
+                "vantage.defaultImageViewer": {
+                    "type": "boolean",
+                    "default": true,
+                    "markdownDescription": "Use Vantage as the default image viewer. When enabled, clicking on image files will open them in Vantage. When disabled, use the **Open With...** context menu to choose Vantage. Requires reloading the window after changing."
+                }
+            }
         },
         "keybindings": [
             {
