@@ -16,9 +16,13 @@
 
 ---
 
-Compare two or more images side-by-side in an adaptive mosaic grid with synchronized zoom and pan, pixel-level difference highlighting, and an overlay mode for rapid A/B switching — all without leaving VS Code.
+Compare two or more images side-by-side in an adaptive mosaic grid with synchronized zoom and pan, pixel-level difference highlighting, and an overlay mode for rapid A/B switching — all without leaving VS Code. Can also be used to view single images with all the same zoom and pan controls.
 
 ## ✨ Features
+
+### Single Image Viewing & Multi-Image Comparison
+
+View single images with full zoom and pan controls, or compare 2+ images simultaneously in a responsive grid. Works as your default image viewer or for side-by-side comparisons.
 
 ### Multi-Image Mosaic
 
@@ -65,7 +69,9 @@ Your zoom level, pan position, view mode, and selections persist across tab swit
 ### From the Marketplace
 
 1. Install **[Vantage Image Compare](https://marketplace.visualstudio.com/items?itemName=vantage-rd.vantage)** from the Extensions panel
-2. Select 2+ images in the File Explorer → Right-click → **Vantage: Compare Images**
+2. To use Vantage as your default image viewer, run **Vantage: Set as Default Image Viewer** from the Command Palette
+3. Or right-click any image → **Vantage: Open in Vantage** to open it in Vantage
+4. For multi-image comparison, select 2+ images → Right-click → **Vantage: Compare Images**
 
 ### From the Command Palette
 
@@ -80,27 +86,50 @@ Run **Vantage: Start** (`Ctrl+Shift+P` / `Cmd+Shift+P`) to open an empty panel, 
 
 ## 🎮 Controls
 
-| Input                                | Action                                                                   |
-| ------------------------------------ | ------------------------------------------------------------------------ |
-| **Scroll wheel**                     | Zoom in/out centered on image (synced)                                   |
-| **Click + drag**                     | Pan all images                                                           |
-| **Mode selector**                    | Toggle Mosaic ↔ Overlay                                                  |
-| `Alt+1` – `Alt+9`                    | Jump to image 1–9                                                        |
-| `Ctrl+Alt+Down`                      | Next image                                                               |
-| `Ctrl+Alt+Up`                        | Previous image                                                           |
-| `Alt+Tab` / `Shift+Alt+Tab`          | Next / previous image (legacy fallback)                                 |
-| `Ctrl+Alt+Right`                     | Next matched pair (paired mode)                                          |
-| `Ctrl+Alt+Left`                      | Previous matched pair (paired mode)                                      |
-| `Ctrl+Shift+PgDn` / `Ctrl+Shift+PgUp` | Next / previous matched pair fallback (paired mode)                    |
-| **Fit** button                       | Reset zoom to fit view                                                   |
-| **?** button                         | Show shortcut help overlay                                               |
-| **Differences** checkbox             | Toggle pixel diff visualization                                          |
-| **Reference / Active** dropdown      | Set reference/active image, drag-reorder image slots, remove image slot |
-| **Hold overlay button**              | Flash reference image in all positions                                   |
+| Input                                 | Action                                                                  |
+| ------------------------------------- | ----------------------------------------------------------------------- |
+| **Scroll wheel**                      | Zoom in/out centered on image (synced)                                  |
+| **Click + drag**                      | Pan all images                                                          |
+| **Mode selector**                     | Toggle Mosaic ↔ Overlay                                                 |
+| `Alt+1` – `Alt+9`                     | Jump to image 1–9                                                       |
+| `Ctrl+Alt+Down`                       | Next image                                                              |
+| `Ctrl+Alt+Up`                         | Previous image                                                          |
+| `Alt+Tab` / `Shift+Alt+Tab`           | Next / previous image (legacy fallback)                                 |
+| `Ctrl+Alt+Right`                      | Next matched pair (paired mode)                                         |
+| `Ctrl+Alt+Left`                       | Previous matched pair (paired mode)                                     |
+| `Ctrl+Shift+PgDn` / `Ctrl+Shift+PgUp` | Next / previous matched pair fallback (paired mode)                     |
+| **Fit** button                        | Reset zoom to fit view                                                  |
+| **?** button                          | Show shortcut help overlay                                              |
+| **Differences** checkbox              | Toggle pixel diff visualization                                         |
+| **Reference / Active** dropdown       | Set reference/active image, drag-reorder image slots, remove image slot |
+| **Hold overlay button**               | Flash reference image in all positions                                  |
 
 ## 📂 Supported Formats
 
 PNG · JPEG · GIF · WebP · BMP · SVG
+
+---
+
+## ⚙️ Configuration
+
+### Default Image Viewer
+
+Vantage can be set as your default image viewer in VS Code. By default, VS Code's built-in image viewer is used.
+
+**To set Vantage as the default image viewer:**
+
+1. Open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`)
+2. Run **Vantage: Set as Default Image Viewer**
+3. Reload the window when prompted
+
+**To disable it:**
+
+1. Open Settings (`Ctrl+,` / `Cmd+,`)
+2. Search for "Vantage"
+3. Uncheck **Default Image Viewer**
+4. Reload the window when prompted
+
+**Note:** When disabled, you can still use "Open With..." context menu to open images in Vantage.
 
 ---
 
@@ -176,7 +205,6 @@ Found a bug or have a feature request? [Open an issue](https://github.com/Christ
 - Steps to reproduce (for bugs)
 - Expected vs actual behavior
 - VS Code version and OS
-
 
 ## 📄 License
 
