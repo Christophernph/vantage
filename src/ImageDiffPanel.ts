@@ -507,9 +507,12 @@ export class ImageDiffPanel {
 </head>
 <body>
     <div class="controls">
-        <div id="zoom-level">100%</div>
+        <div class="zoom-input-wrap" title="Set zoom percentage">
+            <input id="zoomInput" type="text" inputmode="decimal" value="100%" aria-label="Zoom percentage">
+        </div>
         <div class="quick-controls">
-            <button id="fitAllBtn" title="Fit all images">Fit</button>
+            <button id="fitAllBtn" class="icon-button" title="Reset view" aria-label="Reset view">↺</button>
+            <button id="normalizeFitBtn" class="toggle-button" title="Fit: normalize visual scale across images" aria-label="Toggle fit normalize scale" aria-pressed="false">Fit</button>
             <button id="helpBtn" title="Show shortcuts">?</button>
         </div>
         <div id="renderModeControl" class="render-mode-control">
@@ -531,8 +534,7 @@ export class ImageDiffPanel {
                 <span id="dissolveValue">0%</span>
             </div>
             <div id="differencesControl" class="differences-control active">
-                <input type="checkbox" id="differencesCheckbox">
-                <label for="differencesCheckbox">Differences</label>
+                <button id="differencesBtn" aria-pressed="false" title="Toggle differences" aria-label="Toggle differences">Δ</button>
             </div>
             <div id="referenceControl" class="reference-control">
                 <details id="referenceDetails">

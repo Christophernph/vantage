@@ -22,10 +22,26 @@ body {
     position: relative;
 }
 
-#zoom-level {
-    font-size: 12px;
-    opacity: 0.8;
+.zoom-input-wrap {
+    display: inline-flex;
+    align-items: center;
     flex: 0 0 auto;
+}
+
+#zoomInput {
+    width: 46px;
+    height: 24px;
+    border: 1px solid var(--vscode-input-border);
+    background-color: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    border-radius: 3px;
+    padding: 0 6px;
+    font-size: 12px;
+}
+
+#zoomInput:focus {
+    outline: 1px solid var(--vscode-focusBorder);
+    outline-offset: 0;
 }
 
 .status-line {
@@ -58,6 +74,14 @@ body {
 
 .quick-controls button:hover {
     background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+#fitAllBtn.icon-button {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    line-height: 1;
+    font-size: 14px;
 }
 
 .mode-controls {
@@ -101,15 +125,31 @@ body {
     display: flex;
 }
 
-.differences-control label {
-    font-size: 11px;
-    opacity: 0.8;
+.differences-control button {
+    background-color: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
+    border: 1px solid var(--vscode-panel-border);
+    border-radius: 3px;
+    padding: 4px 7px;
+    height: 24px;
     cursor: pointer;
-    user-select: none;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
 }
 
-.differences-control input[type="checkbox"] {
-    cursor: pointer;
+.differences-control button:hover {
+    background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+.differences-control button.active {
+    background-color: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+    border-color: var(--vscode-button-background);
+}
+
+.differences-control button.active:hover {
+    background-color: var(--vscode-button-hoverBackground);
 }
 
 .dissolve-control {
@@ -319,6 +359,31 @@ body:not(.overlay-mode) .overlay-active-control {
     border-radius: 3px;
 }
 
+#normalizeFitBtn {
+    background-color: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
+    border: 1px solid var(--vscode-panel-border);
+    border-radius: 3px;
+    padding: 4px 8px;
+    height: 24px;
+    cursor: pointer;
+    font-size: 11px;
+}
+
+#normalizeFitBtn:hover {
+    background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+#normalizeFitBtn.active {
+    background-color: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+    border-color: var(--vscode-button-background);
+}
+
+#normalizeFitBtn.active:hover {
+    background-color: var(--vscode-button-hoverBackground);
+}
+
 #overlayBtn:hover {
     background-color: var(--vscode-button-hoverBackground);
 }
@@ -452,6 +517,13 @@ body.overlay-mode #overlayBtn {
     height: auto;
     transform-origin: center center;
     object-fit: contain;
+}
+
+body.pixelated-scaling .sync-image,
+body.pixelated-scaling .dissolve-overlay,
+body.pixelated-scaling .comparison-diff-canvas {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
 }
 
 .comparison-diff-canvas {
