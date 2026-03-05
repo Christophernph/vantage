@@ -310,32 +310,33 @@ export function activate(context: vscode.ExtensionContext): void {
         });
     };
 
-    const updateStrictPairPermutation = (order: number[]): void => {
-        if (!activeStrictPairSession) {
+    const handleImageOrderChanged = (order: number[]): void => {
+        if (activeStrictPairSession) {
+            const size = activeStrictPairSession.slotPermutation.length;
+            if (!isValidPermutation(order, size)) {
+                return;
+            }
+
+            activeStrictPairSession.slotPermutation = [...order];
             return;
         }
 
-        const size = activeStrictPairSession.slotPermutation.length;
-        if (!isValidPermutation(order, size)) {
-            return;
-        }
-
-        activeStrictPairSession.slotPermutation = [...order];
+        ImageDiffPanel.currentPanel?.applyImageOrder(order);
     };
 
-    const removeStrictPairSlot = (displayIndex: number): void => {
+    const removeStrictPairSlot = (displayIndex: number): {
+        imageUris: vscode.Uri[];
+        slotOrder?: number[];
+        pairStatus: string;
+        endedPairedMode: boolean;
+    } | undefined => {
         if (!activeStrictPairSession) {
-            return;
+            return undefined;
         }
 
         const currentSize = activeStrictPairSession.slotPermutation.length;
-        if (currentSize <= 2) {
-            vscode.window.showWarningMessage('At least 2 folders are required for paired comparison.');
-            return;
-        }
-
         if (displayIndex < 0 || displayIndex >= currentSize) {
-            return;
+            return undefined;
         }
 
         const originalSlotIndex = activeStrictPairSession.slotPermutation[displayIndex];
@@ -352,13 +353,61 @@ export function activate(context: vscode.ExtensionContext): void {
 
         activeStrictPairSession.slotPermutation = updatedPermutation;
 
+        activeStrictPairSession.index = Math.min(
+            activeStrictPairSession.index,
+            Math.max(0, activeStrictPairSession.groups.length - 1)
+        );
+
+        const group = activeStrictPairSession.groups[activeStrictPairSession.index];
+        const orderedUris = group
+            ? applyPermutationToUris(group.imageUris, activeStrictPairSession.slotPermutation)
+            : [];
+
         if (activeStrictPairSession.folders.length < 2) {
             clearStrictPairSession();
-            vscode.window.showWarningMessage('Paired comparison ended because fewer than 2 folders remain.');
+            return {
+                imageUris: orderedUris,
+                pairStatus: '',
+                endedPairedMode: true
+            };
+        }
+
+        return {
+            imageUris: orderedUris,
+            slotOrder: [...activeStrictPairSession.slotPermutation],
+            pairStatus: formatPairStatus(activeStrictPairSession),
+            endedPairedMode: false
+        };
+    };
+
+    const removeImageAtIndex = (index: number): void => {
+        const panel = ImageDiffPanel.currentPanel;
+        if (!panel) {
             return;
         }
 
-        void loadStrictPairAtIndex(activeStrictPairSession.index);
+        if (activeStrictPairSession) {
+            const pairUpdate = removeStrictPairSlot(index);
+            if (!pairUpdate) {
+                return;
+            }
+
+            panel.loadImages(pairUpdate.imageUris, pairUpdate.slotOrder);
+            panel.setPairStatus(pairUpdate.pairStatus);
+
+            if (pairUpdate.endedPairedMode) {
+                vscode.window.showInformationMessage('Paired comparison ended because fewer than 2 folders remain.');
+            }
+            return;
+        }
+
+        const currentImages = panel.getCurrentImageUris();
+        if (index < 0 || index >= currentImages.length) {
+            return;
+        }
+
+        panel.removeImageAt(index);
+        panel.setPairStatus('');
     };
 
     const openPanel = async (
@@ -410,10 +459,10 @@ export function activate(context: vscode.ExtensionContext): void {
                 ImageDiffPanel.currentPanel?.appendImages(images);
             },
             (order: number[]) => {
-                updateStrictPairPermutation(order);
+                handleImageOrderChanged(order);
             },
             (index: number) => {
-                removeStrictPairSlot(index);
+                removeImageAtIndex(index);
             },
             options?.pairSlotOrder
         );

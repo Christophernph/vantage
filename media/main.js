@@ -165,10 +165,6 @@
         return `Loading image ${index + 1}…`;
     }
 
-    function isPairedModeActive() {
-        return Boolean(state.pairStatus);
-    }
-
     let dragSourceIndex = -1;
     let dragListEl = null;
     let dragLastClientY = null;
@@ -685,18 +681,10 @@
             const removeBtn = document.createElement('button');
             removeBtn.className = 'overlay-active-remove';
             removeBtn.textContent = '×';
-            removeBtn.title = state.images.length <= 2
-                ? 'At least 2 images are required'
-                : `Remove ${label}`;
-            removeBtn.disabled = state.images.length <= 2;
+            removeBtn.title = `Remove ${label}`;
             removeBtn.addEventListener('click', (event) => {
                 event.stopPropagation();
-                if (isPairedModeActive()) {
-                    postToExtension({ command: 'removeImageIndex', index });
-                    return;
-                }
-
-                removeImageAt(index);
+                requestRemoveImageAt(index);
             });
 
             const grabBtn = document.createElement('button');
@@ -977,8 +965,8 @@
         state.referenceIndex = Math.min(Math.max(state.referenceIndex, 0), maxIndex);
     }
 
-    function removeImageAt(index) {
-        if (state.images.length <= 2) {
+    function applyLocalRemovalAt(index) {
+        if (index < 0 || index >= state.images.length) {
             return;
         }
 
@@ -1000,10 +988,18 @@
         if (state.renderMode !== 'overlay') {
             state.activeOverlayIndex = state.referenceIndex;
         }
-        updateSelectorDropdowns();
+
         createImageContainers();
+        updateSelectorDropdowns();
         updateStatusLine();
-        postImageOrderChanged();
+    }
+
+    function requestRemoveImageAt(index) {
+        if (index < 0 || index >= state.images.length) {
+            return;
+        }
+
+        postToExtension({ command: 'removeImageIndex', index });
     }
 
     function updateOverlayActiveDropdown() {
@@ -1042,18 +1038,10 @@
             const removeBtn = document.createElement('button');
             removeBtn.className = 'overlay-active-remove';
             removeBtn.textContent = '×';
-            removeBtn.title = state.images.length <= 2
-                ? 'At least 2 images are required'
-                : `Remove ${label}`;
-            removeBtn.disabled = state.images.length <= 2;
+            removeBtn.title = `Remove ${label}`;
             removeBtn.addEventListener('click', (event) => {
                 event.stopPropagation();
-                if (isPairedModeActive()) {
-                    postToExtension({ command: 'removeImageIndex', index });
-                    return;
-                }
-
-                removeImageAt(index);
+                requestRemoveImageAt(index);
             });
 
             const grabBtn = document.createElement('button');
@@ -1205,6 +1193,13 @@
         imagesContainer.innerHTML = '';
         state.imageContainers = [];
         imagesContainer.setAttribute('data-count', state.images.length.toString());
+
+        if (state.images.length === 0) {
+            const emptyState = document.createElement('div');
+            emptyState.className = 'empty-state';
+            emptyState.textContent = 'No images loaded';
+            imagesContainer.appendChild(emptyState);
+        }
 
         for (let index = 0; index < state.images.length; index++) {
             const img = state.images[index];
@@ -1685,6 +1680,15 @@
 
         if (command === 'cycleImagePrevious') {
             cycleOverlay(-1);
+            return;
+        }
+
+        if (command === 'removeImageAt') {
+            if (!Number.isInteger(message.index)) {
+                return;
+            }
+
+            applyLocalRemovalAt(message.index);
             return;
         }
 

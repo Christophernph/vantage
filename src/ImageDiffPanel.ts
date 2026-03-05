@@ -66,6 +66,22 @@ function parseDroppedUri(raw: string): vscode.Uri | undefined {
     return undefined;
 }
 
+function isValidPermutation(order: number[], size: number): boolean {
+    if (order.length !== size) {
+        return false;
+    }
+
+    const seen = new Set<number>();
+    for (const value of order) {
+        if (!Number.isInteger(value) || value < 0 || value >= size || seen.has(value)) {
+            return false;
+        }
+        seen.add(value);
+    }
+
+    return true;
+}
+
 export class ImageDiffPanel {
     public static currentPanel: ImageDiffPanel | undefined;
     private readonly _panel: vscode.WebviewPanel;
@@ -238,7 +254,11 @@ export class ImageDiffPanel {
                             .map((value: unknown) => typeof value === 'number' ? value : Number.NaN)
                             .filter((value: number) => Number.isInteger(value));
                         if (order.length > 0) {
-                            this._onImageOrderChanged?.(order);
+                            if (this._onImageOrderChanged) {
+                                this._onImageOrderChanged(order);
+                            } else {
+                                this.applyImageOrder(order);
+                            }
                         }
                         return;
                     }
@@ -246,7 +266,11 @@ export class ImageDiffPanel {
                     case 'removeImageIndex': {
                         const index = typeof message.index === 'number' ? message.index : Number.NaN;
                         if (Number.isInteger(index)) {
-                            this._onRemoveImageIndex?.(index);
+                            if (this._onRemoveImageIndex) {
+                                this._onRemoveImageIndex(index);
+                            } else {
+                                this.removeImageAt(index);
+                            }
                         }
                         return;
                     }
@@ -300,6 +324,62 @@ export class ImageDiffPanel {
         this._currentImages = merged;
         this._currentSlotOrder = merged.map((_, index) => index);
         void this._loadImages(merged);
+    }
+
+    public removeImageAt(index: number): void {
+        if (!Number.isInteger(index) || index < 0 || index >= this._currentImages.length) {
+            return;
+        }
+
+        const updatedImages = [...this._currentImages];
+        updatedImages.splice(index, 1);
+
+        const updatedSlotOrder = this._currentSlotOrder.length === this._currentImages.length
+            ? [...this._currentSlotOrder]
+            : this._currentImages.map((_, slotIndex) => slotIndex);
+        updatedSlotOrder.splice(index, 1);
+
+        this._currentImages = updatedImages;
+        this._currentSlotOrder = updatedSlotOrder;
+
+        if (!this._webviewReady) {
+            void this._loadImages(updatedImages);
+            return;
+        }
+
+        this._panel.webview.postMessage({
+            command: 'removeImageAt',
+            index
+        });
+
+        this._setupFileWatchers(updatedImages);
+    }
+
+    public applyImageOrder(order: number[]): void {
+        if (!isValidPermutation(order, this._currentSlotOrder.length)) {
+            return;
+        }
+
+        const slotToImage = new Map<number, vscode.Uri>();
+        for (let index = 0; index < this._currentImages.length; index++) {
+            const slot = this._currentSlotOrder[index];
+            if (slot === undefined) {
+                return;
+            }
+
+            slotToImage.set(slot, this._currentImages[index]);
+        }
+
+        const reorderedImages = order
+            .map(slot => slotToImage.get(slot))
+            .filter((uri): uri is vscode.Uri => uri !== undefined);
+
+        if (reorderedImages.length !== this._currentImages.length) {
+            return;
+        }
+
+        this._currentImages = reorderedImages;
+        this._currentSlotOrder = [...order];
     }
 
     public getCurrentImageUris(): vscode.Uri[] {

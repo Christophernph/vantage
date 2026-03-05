@@ -417,6 +417,17 @@ body.overlay-mode #overlayBtn {
     overflow: hidden;
 }
 
+.empty-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    font-size: 13px;
+    opacity: 0.75;
+    color: var(--vscode-descriptionForeground);
+}
+
 .images-container.overlay-mode {
     display: block;
     position: relative;
